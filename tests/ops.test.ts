@@ -170,4 +170,20 @@ describe('applyOps', () => {
     expect(v2).not.toBeNull();
     expect(v2).not.toBe('T1');
   });
+
+  it('rejects unbounded geometry with bad_op', () => {
+    for (const op of [
+      { op: 'rect', x: 0, y: 0, w: 1_000_000, h: 1, color: 'A1' },
+      { op: 'clear', region: { x: -1e7, y: 0, w: 1, h: 1 } },
+    ]) {
+      try {
+        applyOps(smallDesign(), [op], ctxAll);
+        throw new Error('should throw');
+      } catch (e) {
+        expect(e).toBeInstanceOf(OpError);
+        expect((e as OpError).code).toBe('bad_op');
+        expect((e as OpError).opIndex).toBe(0);
+      }
+    }
+  });
 });
