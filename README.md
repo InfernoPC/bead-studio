@@ -11,6 +11,21 @@ pnpm install
 pnpm start          # http://localhost:5174
 ```
 
+## 用 Docker 執行
+
+```bash
+mkdir -p ~/BeadStudio        # 匯入／匯出圖片的交換資料夾
+docker compose up -d --build # http://localhost:5174
+docker compose logs -f       # 看 log
+docker compose down          # 停止
+```
+
+- 埠只開在本機（`127.0.0.1:5174`）。
+- `data/`、`config/` 掛進容器，作品與庫存都留在這個資料夾裡；AI 改了 `config/checks.json` 後執行 `docker compose restart` 生效。
+- `~/BeadStudio` 以相同的絕對路徑掛進容器；`import_image`／`export_png` 只能使用這個資料夾裡的檔案。
+- 更新程式碼後重新執行 `docker compose up -d --build`。
+- 若把主機埠改成 5174 以外，記得在 `BEADS_ALLOWED_HOSTS` 加上 `localhost:新埠`。
+
 ## 連接 Claude Code
 
 ```bash
@@ -27,6 +42,9 @@ claude mcp add --transport http beads http://localhost:5174/mcp
 | `BEADS_VISION` | auto | `off`：render_preview 改回傳文字描述（給不能看圖的模型） |
 | `BEADS_DATA_DIR` | data | 設計、色表、庫存 |
 | `BEADS_CONFIG_DIR` | config | 檢查器門檻 `checks.json` |
+| `BEADS_HOST` | 127.0.0.1 | 監聽位址；Docker 映像內為 `0.0.0.0` |
+| `BEADS_FILES_DIR` | （不限制） | 設定後 `import_image`／`export_png` 只能使用此資料夾（絕對路徑） |
+| `BEADS_HOME_DIR` | 系統家目錄 | 展開 `~` 用的家目錄（絕對路徑）；Docker 內設為主機的家目錄 |
 | `BEADS_ALLOWED_HOSTS` | （空） | 額外允許的 Host（`host:port`，逗號分隔）；預設只接受 `localhost:PORT` 與 `127.0.0.1:PORT`，其他 Host／Origin 一律 403 |
 
 ## 使用者資料

@@ -16,8 +16,8 @@ import { FIX_COLORS } from './fixtures';
 let dir: string;
 let store: DesignStore;
 
-async function connect(vision: Vision = 'on') {
-  const server = buildMcpServer(store, { vision });
+async function connect(vision: Vision = 'on', extra: { filesDir?: string; homeDir?: string } = {}) {
+  const server = buildMcpServer(store, { vision, ...extra });
   const [ct, st] = InMemoryTransport.createLinkedPair();
   await server.connect(st);
   const client = new Client({ name: 'test', version: '1.0.0' });
@@ -154,6 +154,21 @@ describe('MCP tools', () => {
     const r = await text('import_image', { path: out });
     expect(r.text).toMatch(/還原/);
     expect(store.list().length).toBe(before + 1);
+  });
+
+  it('import_image / export_png are confined to filesDir when set', async () => {
+    const files = join(dir, 'BeadStudio');
+    mkdirSync(files);
+    const { text } = await connect('on', { filesDir: files, homeDir: dir });
+    await text('new_design', NEW);
+    const outside = await text('export_png', { path: join(dir, 'out.png') });
+    expect(outside.ok).toBe(false);
+    expect(outside.text).toMatch(/bad_path.*只能使用/);
+    const inside = await text('export_png', { path: '~/BeadStudio/out.png' });
+    expect(inside.ok).toBe(true);
+    expect(extractDesign(readFileSync(join(files, 'out.png')))).not.toBeNull();
+    const imp = await text('import_image', { path: join(dir, 'data/palette.json') });
+    expect(imp.text).toMatch(/bad_path/);
   });
 
   it('export_png only writes .png paths', async () => {

@@ -29,6 +29,9 @@ description: 用 Bead Studio MCP 設計拼豆圖案時使用：設計流程、�
 - 讀圖用 `get_design`（RLE），不要反覆讀；改完看 `apply_ops` 回傳的摘要即可。
 - 不要每一步都 `render_preview`，在流程第 8 步集中看。
 
+## 檔案路徑
+- `import_image`／`export_png` 的路徑用絕對路徑或 `~/` 開頭。伺服器以 Docker 執行時只能使用 `~/BeadStudio` 裡的檔案（工具說明會寫出實際資料夾）；使用者給的圖片不在裡面時，請他先放進去。
+
 ## 錯誤處理
 - `apply_ops` 失敗時整批不會套用，照錯誤訊息（含 op 編號）修正後重送整批。
 - `color_not_allowed` 會建議最接近的可用色；`shape_locked` 代表要先解鎖或改用換色。
