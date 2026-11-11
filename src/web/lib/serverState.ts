@@ -19,12 +19,17 @@ export function reduceServer(s: ClientState, e: ServerEvent): ClientState {
       if (!snap) return s;
       const d = e.design;
       if (snap.current && d.id === snap.current.id && d.version < snap.current.version) return s;
-      const known = snap.designs.some((x) => x.id === d.id);
       const entry = { id: d.id, name: d.name, version: d.version };
+      if (snap.current && d.id === snap.current.id) {
+        const designs = snap.designs.map((x) => (x.id === d.id ? { ...x, ...entry } : x));
+        return { ...s, snapshot: { ...snap, designs, current: d } };
+      }
+      // 非目前作品：只更新清單，哪個作品是目前的由 /api/state 決定
+      const known = snap.designs.some((x) => x.id === d.id);
       const designs = known
-        ? snap.designs.map((x) => (x.id === d.id ? { ...x, ...entry, current: true } : { ...x, current: false }))
-        : [...snap.designs.map((x) => ({ ...x, current: false })), { ...entry, current: true }];
-      return { ...s, snapshot: { ...snap, designs, current: d } };
+        ? snap.designs.map((x) => (x.id === d.id ? { ...x, ...entry } : x))
+        : [...snap.designs, { ...entry, current: false }];
+      return { ...s, snapshot: { ...snap, designs } };
     }
   }
 }

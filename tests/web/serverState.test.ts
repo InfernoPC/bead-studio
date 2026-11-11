@@ -11,11 +11,16 @@ describe('reduceServer', () => {
     expect(reduceServer(base, { type: 'design', design: { ...d1, version: 4, name: 'new' } }).snapshot!.current!.name).toBe('new');
     expect(reduceServer(base, { type: 'design', design: { ...d1, version: 2, name: 'old' } }).snapshot!.current!.name).toBe(d1.name);
   });
-  it('switches to another design when a different id arrives', () => {
+  it('does not switch current when another design changes', () => {
     const other = { ...smallDesign(), id: 'other', version: 0, name: '另一個' };
     const s = reduceServer(base, { type: 'design', design: other });
-    expect(s.snapshot!.current!.id).toBe('other');
-    expect(s.snapshot!.designs.find((x) => x.id === 'other')!.current).toBe(true);
+    expect(s.snapshot!.current!.id).toBe(d1.id);
+    const entry = s.snapshot!.designs.find((x) => x.id === 'other')!;
+    expect(entry).toMatchObject({ name: '另一個', version: 0, current: false });
+    expect(s.snapshot!.designs.find((x) => x.id === d1.id)!.current).toBe(true);
+    const s2 = reduceServer(s, { type: 'design', design: { ...other, version: 1, name: '改名' } });
+    expect(s2.snapshot!.designs.find((x) => x.id === 'other')).toMatchObject({ name: '改名', version: 1, current: false });
+    expect(s2.snapshot!.current!.id).toBe(d1.id);
   });
   it('tracks connection state without touching data', () => {
     const s = reduceServer(base, { type: 'conn', conn: 'offline' });

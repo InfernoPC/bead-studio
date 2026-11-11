@@ -7,11 +7,15 @@ const INITIAL: ClientState = { conn: 'connecting', snapshot: null };
 export function useServer(): { state: ClientState; refresh(): Promise<void> } {
   const [state, dispatch] = useReducer(reduceServer, INITIAL);
   const alive = useRef(true);
+  const reqSeq = useRef(0);
+  const currentId = useRef<string | null>(null);
+  currentId.current = state.snapshot?.current?.id ?? null;
 
   const refresh = useCallback(async () => {
+    const seq = ++reqSeq.current;
     try {
       const snapshot = await getState();
-      if (alive.current) dispatch({ type: 'snapshot', snapshot });
+      if (alive.current && seq === reqSeq.current) dispatch({ type: 'snapshot', snapshot });
     } catch { /* 連線狀態由 WebSocket 決定 */ }
   }, []);
 
@@ -30,7 +34,10 @@ export function useServer(): { state: ClientState; refresh(): Promise<void> } {
         try { msg = JSON.parse(String(ev.data)); } catch { return; }
         if (msg.type === 'hello') { dispatch({ type: 'conn', conn: 'online' }); void refresh(); }
         else if (msg.type === 'meta') void refresh();
-        else if (msg.type === 'design' && msg.design) dispatch({ type: 'design', design: msg.design });
+        else if (msg.type === 'design' && msg.design) {
+          dispatch({ type: 'design', design: msg.design });
+          if (msg.design.id !== currentId.current) void refresh();
+        }
       };
       sock.onclose = () => {
         if (!alive.current || ws !== sock) return;
