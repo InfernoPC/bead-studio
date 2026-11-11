@@ -50,5 +50,6 @@
 html, body, #root { height: 100%; margin: 0; }
 body { background: var(--paper); color: var(--ink); font-family: var(--font); font-size: var(--fs-md); }
 .num { font-variant-numeric: tabular-nums; }
-:focus-visible { outline: 2.5px solid var(--peach); outline-offset: 2px; }
+/* 鍵盤焦點用墨色；--peach 只留給「選取中」，不然焦點和選取分不出來 */
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

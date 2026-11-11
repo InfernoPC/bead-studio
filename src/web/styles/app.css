@@ -145,7 +145,8 @@ button:disabled, button[aria-disabled="true"] { cursor: not-allowed; opacity: .4
   display: flex; align-items: center; gap: 6px; padding: 0 10px; height: 32px;
   border: 1.5px solid var(--line); border-radius: 10px; background: var(--paper); color: var(--ink-soft);
 }
-.tray-search:focus-within { border-color: color-mix(in srgb, var(--ink) 35%, transparent); }
+/* 輸入框本身不畫外框（outline: 0），焦點畫在整個搜尋框上，和全站的墨色焦點一致 */
+.tray-search:focus-within { border-color: color-mix(in srgb, var(--ink) 35%, transparent); outline: 2px solid var(--ink); outline-offset: 2px; }
 .tray-search svg { width: 15px; height: 15px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
 .tray-search input {
   flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; padding: 0;
@@ -431,7 +432,7 @@ button:disabled, button[aria-disabled="true"] { cursor: not-allowed; opacity: .4
   background: var(--paper); color: var(--ink); font: inherit; font-size: var(--fs-sm);
 }
 .field-input:focus { border-color: color-mix(in srgb, var(--ink) 35%, transparent); outline: 0; }
-.field-input:focus-visible { outline: 2.5px solid var(--peach); outline-offset: 1px; }
+.field-input:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
 .field-input:disabled { color: var(--ink-soft); background: transparent; }
 .field-input::placeholder { color: var(--ink-soft); opacity: .8; }
 .field-row { display: flex; align-items: flex-end; gap: 10px; }
