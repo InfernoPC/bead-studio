@@ -1,7 +1,7 @@
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { formatIssues, runChecks } from '../core/checks';
 import { OpError } from '../core/errors';
-import { imageToCells } from '../core/importImage';
+import { imageToCells, type PixelRect } from '../core/importImage';
 import { getVariant, maskFromCells } from '../core/model';
 import { syncOtherVariants } from '../core/ops';
 import { allowedCodes, stockCapacity } from '../core/palette';
@@ -15,7 +15,11 @@ export const MAX_IMAGE_PIXELS = 50_000_000;
 export async function importImageBuffer(
   store: DesignStore,
   buf: Buffer,
-  { designId: id, variant: v, removeBg = false, dither = false }: { designId?: string; variant?: string; removeBg?: boolean; dither?: boolean },
+  { designId: id, variant: v, removeBg = false, dither = false, colors, crop, exclude }: {
+    designId?: string; variant?: string; removeBg?: boolean; dither?: boolean;
+    /** 只用這些色號轉換（例如黑白線稿只給黑、白） */
+    colors?: string[]; crop?: PixelRect; exclude?: PixelRect[];
+  },
 ): Promise<string> {
   const known = (cells: (string | null)[]) => cells.every((c) => c === null || store.palette.has(c));
   const meta = extractDesign(buf);
@@ -39,9 +43,16 @@ export async function importImageBuffer(
   const d = store.update(id, (cur) => {
     if (cur.shapeLocked) throw new OpError('shape_locked', '形狀已鎖定，無法導入圖片（會改變豆子位置）');
     const target = getVariant(cur, v);
-    const allowed = store.palette.entries(allowedCodes(store.palette, store.inventory, target.paletteMode)).filter((e) => !e.transparent);
+    let allowed = store.palette.entries(allowedCodes(store.palette, store.inventory, target.paletteMode)).filter((e) => !e.transparent);
+    if (colors) {
+      const unknown = colors.filter((c) => !store.palette.has(c));
+      if (unknown.length) throw new OpError('unknown_color', `色表沒有這些色號：${unknown.join(', ')}`);
+      const outside = colors.filter((c) => !allowed.some((e) => e.code === c));
+      if (outside.length) throw new OpError('color_not_allowed', `這些色號不在「${target.name}」的色彩範圍內（或是透明豆）：${outside.join(', ')}`);
+      allowed = allowed.filter((e) => colors.includes(e.code));
+    }
     const cells = imageToCells(rgba, img.width, img.height, {
-      cols: cur.cols, rows: cur.rows, margin: cur.board.margin, allowed, removeBg, dither,
+      cols: cur.cols, rows: cur.rows, margin: cur.board.margin, allowed, removeBg, dither, crop, exclude,
       capacity: target.paletteMode === 'stock' ? stockCapacity(store.inventory) : undefined,
     });
     const next = structuredClone(cur);

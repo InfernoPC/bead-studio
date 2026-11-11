@@ -23,6 +23,7 @@ const Mode = z.enum(['all', 'owned', 'stock']);
 const ViewE = z.enum(['flat', 'pattern', '3d', 'ironed']);
 const designId = z.string().optional().describe('作品 id；省略時用目前開啟的作品');
 const variant = z.string().optional().describe('配色版本 id（例如 v1）；省略時用目前顯示的版本');
+const PixelRect = z.object({ x: z.number().int().min(0), y: z.number().int().min(0), w: z.number().int().min(1), h: z.number().int().min(1) });
 
 type Content = { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string };
 const ok = (text: string) => ({ content: [{ type: 'text' as const, text }] });
@@ -193,10 +194,15 @@ export function buildMcpServer(store: DesignStore, opts: { vision?: Vision } & P
   }, wrap(({ code, hex }) => { store.setCalibration(code, hex); return ok(hex ? `已校正 ${code} 為 ${hex}` : `已清除 ${code} 的校正`); }));
 
   server.registerTool('import_image', {
-    description: (opts.filesDir ? `只能使用 ${opts.filesDir} 裡的檔案。` : '') + '導入圖片。含 bead-studio metadata 的 PNG 會還原成新作品；其他圖片會轉換到目前作品的指定版本（覆蓋原內容）',
-    inputSchema: { path: z.string(), designId, variant, removeBg: z.boolean().default(false), dither: z.boolean().default(false) },
-  }, wrap(async ({ path, designId: id, variant: v, removeBg, dither }) =>
-    ok(await importImageBuffer(store, readFileSync(resolveUserPath(path, opts)), { designId: id, variant: v, removeBg, dither }))));
+    description: (opts.filesDir ? `只能使用 ${opts.filesDir} 裡的檔案。` : '') + '導入圖片。含 bead-studio metadata 的 PNG 會還原成新作品；其他圖片會轉換到目前作品的指定版本（覆蓋原內容）。'
+      + 'removeBg 只去掉從圖片外圍連進來的背景色（被外框圍住的同色區塊會保留）；colors 限定只用哪些色號；crop 只取原圖某一塊；exclude 把原圖上的區塊（例如文字）當背景略過。crop／exclude 的座標是原圖像素',
+    inputSchema: {
+      path: z.string(), designId, variant, removeBg: z.boolean().default(false), dither: z.boolean().default(false),
+      colors: z.array(z.string().min(1)).min(1).max(64).optional(),
+      crop: PixelRect.optional(), exclude: z.array(PixelRect).max(32).optional(),
+    },
+  }, wrap(async ({ path, designId: id, variant: v, removeBg, dither, colors, crop, exclude }) =>
+    ok(await importImageBuffer(store, readFileSync(resolveUserPath(path, opts)), { designId: id, variant: v, removeBg, dither, colors, crop, exclude }))));
 
   server.registerTool('export_png', {
     description: (opts.filesDir ? `只能寫到 ${opts.filesDir} 裡。` : '') + '匯出 PNG（含可還原的 metadata）。variant 填 "all" 會並排所有版本',

@@ -27,6 +27,24 @@ describe('imageToCells', () => {
     const cells = imageToCells(rgba, 4, 4, { cols: 4, rows: 4, margin: 0, allowed, removeBg: true });
     expect(cells.filter(Boolean)).toEqual(['C1', 'C1', 'C1', 'C1']);
   });
+  it('keeps background-colored areas enclosed by an outline', () => {
+    // 5×5：白底、深色外框圍住中間一顆白
+    const rgba = img(5, 5, (x, y) => {
+      const ring = x >= 1 && x <= 3 && y >= 1 && y <= 3 && !(x === 2 && y === 2);
+      return ring ? [17, 17, 17, 255] : [255, 255, 255, 255];
+    });
+    const cells = imageToCells(rgba, 5, 5, { cols: 5, rows: 5, margin: 0, allowed, removeBg: true });
+    expect(cells[2 * 5 + 2]).toBe('H1'); // 圍起來的白色身體保留
+    expect(cells[0]).toBeNull(); // 外面的背景去掉
+    expect(cells.filter(Boolean)).toHaveLength(9);
+  });
+  it('crops and excludes regions of the source image', () => {
+    // 4×2：左半紅、右半藍；只取右半，並把右上角當背景略過
+    const rgba = img(4, 2, (x) => (x < 2 ? [232, 67, 79, 255] : [46, 126, 196, 255]));
+    const cells = imageToCells(rgba, 4, 2, { cols: 2, rows: 2, margin: 0, allowed, crop: { x: 2, y: 0, w: 2, h: 2 }, exclude: [{ x: 3, y: 0, w: 1, h: 1 }] });
+    expect(cells).toEqual(['C1', null, 'C1', 'C1']);
+    expect(() => imageToCells(rgba, 4, 2, { cols: 2, rows: 2, margin: 0, allowed, crop: { x: 9, y: 0, w: 2, h: 2 } })).toThrow(/裁切範圍/);
+  });
   it('respects stock capacity', () => {
     const rgba = img(3, 1, () => [232, 67, 79, 255]);
     const cells = imageToCells(rgba, 3, 1, { cols: 3, rows: 1, margin: 0, allowed, capacity: new Map([['A1', 1], ['H2', 5]]) });

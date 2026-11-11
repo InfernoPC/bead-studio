@@ -65,4 +65,13 @@ describe('importImageBuffer size limit', () => {
     ctx.fillStyle = '#2E7EC4'; ctx.fillRect(0, 0, 8, 8);
     expect(await importImageBuffer(store, Buffer.from(await c.encode('png')), {})).toMatch(/已轉換圖片/);
   });
+  it('limits the conversion to the given color codes', async () => {
+    const c = createCanvas(8, 8); const ctx = c.getContext('2d');
+    ctx.fillStyle = '#2E7EC4'; ctx.fillRect(0, 0, 8, 8);
+    const png = Buffer.from(await c.encode('png'));
+    await importImageBuffer(store, png, { colors: ['H2'] });
+    expect(new Set(store.get().variants[0].cells.filter(Boolean))).toEqual(new Set(['H2']));
+    const err = await importImageBuffer(store, png, { colors: ['NOPE'] }).catch((e) => e);
+    expect(err.code).toBe('unknown_color');
+  });
 });
