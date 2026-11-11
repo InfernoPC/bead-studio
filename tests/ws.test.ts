@@ -2,12 +2,13 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import net from 'node:net';
 import WebSocket from 'ws';
 import { DesignStore } from '../src/server/store';
 import { buildApp } from '../src/server/app';
 import { FIX_COLORS } from './fixtures';
 
-let app: Awaited<ReturnType<typeof buildApp>>, base: string;
+let app: Awaited<ReturnType<typeof buildApp>>, base: string, port: number;
 beforeAll(async () => {
   const dir = mkdtempSync(join(tmpdir(), 'beads-ws-'));
   mkdirSync(join(dir, 'data')); mkdirSync(join(dir, 'config'));
@@ -16,6 +17,7 @@ beforeAll(async () => {
   store.load();
   app = await buildApp(store);
   base = await app.listen({ port: 0, host: '127.0.0.1' });
+  port = Number(new URL(base).port);
 });
 afterAll(() => app.close());
 
@@ -26,6 +28,17 @@ function open(origin?: string) {
   return { ws, msgs };
 }
 const post = (n: string, b: object) => fetch(`${base}/api/tools/${n}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) }).then((r) => r.json());
+/** fetch 不能改 Host：直接寫原始 HTTP 請求，回傳狀態碼 */
+function statusWithHost(path: string, host: string, upgrade = false): Promise<number> {
+  const extra = upgrade
+    ? 'Upgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n'
+    : 'Connection: close\r\n';
+  return new Promise((resolve, reject) => {
+    const s = net.connect(port, '127.0.0.1', () => s.write(`GET ${path} HTTP/1.1\r\nHost: ${host}\r\n${extra}\r\n`));
+    s.once('data', (d) => { resolve(Number(/^HTTP\/1\.1 (\d+)/.exec(String(d))?.[1])); s.destroy(); });
+    s.on('error', reject);
+  });
+}
 const until = async (f: () => boolean) => { for (let i = 0; i < 100 && !f(); i++) await new Promise((r) => setTimeout(r, 20)); };
 
 describe('/ws', () => {
@@ -64,6 +77,36 @@ describe('/ws', () => {
     const { ws } = open('http://evil.example');
     const code = await new Promise((r) => { ws.on('unexpected-response', (_q, res) => r(res.statusCode)); ws.on('error', () => {}); });
     expect(code).toBe(403);
+  });
+  it('rejects a foreign Host on /ws and on /api/state (DNS rebinding)', async () => {
+    expect(await statusWithHost('/api/state', 'evil.example')).toBe(403);
+    expect(await statusWithHost('/ws', `evil.example:${port}`, true)).toBe(403);
+    // 同樣的請求換成本機 Host 就會通過，確定 403 是 Host 造成的
+    expect(await statusWithHost('/api/state', `127.0.0.1:${port}`)).toBe(200);
+    expect(await statusWithHost('/ws', `127.0.0.1:${port}`, true)).toBe(101);
+  });
+  it('a malformed (unmasked, bad opcode) frame or an abrupt reset does not crash the server', async () => {
+    const watcher = open();
+    await until(() => watcher.msgs.length > 0);
+    for (const mode of ['badframe', 'reset'] as const) {
+      await new Promise<void>((resolve) => {
+        const s = net.connect(port, '127.0.0.1', () => {
+          s.write(`GET /ws HTTP/1.1\r\nHost: 127.0.0.1:${port}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n`);
+        });
+        s.on('error', () => {});
+        s.once('data', () => {
+          if (mode === 'badframe') s.write(Buffer.from([0x8f, 0x00])); // 沒有遮罩、不存在的 opcode
+          else s.resetAndDestroy();
+          setTimeout(() => { s.destroy(); resolve(); }, 200);
+        });
+      });
+      // 伺服器還活著：之後的修改照樣廣播給其他連線
+      const before = watcher.msgs.length;
+      await post('new_design', { name: `after-${mode}`, widthMm: 20, heightMm: 20, bead: 5, margin: 0 });
+      await until(() => watcher.msgs.length > before);
+      expect(watcher.msgs.at(-1)).toMatchObject({ type: 'design', design: { name: `after-${mode}` } });
+    }
+    watcher.ws.close();
   });
   it('design messages and /api/state list snapshots without their contents; restore still works by id', async () => {
     const { ws, msgs } = open();
