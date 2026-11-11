@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from 'react';
 import type { Tool } from '../lib/editorState';
+import { isTyping } from '../lib/keyboard';
 
 type ToolDef = { tool: Tool; label: string; key: string; icon: ReactNode };
 
@@ -22,11 +23,6 @@ type Props = {
   tool: Tool; mirror: boolean; disabled: boolean;
   onTool(tool: Tool): void; onToggleMirror(): void;
 };
-
-function isTyping(t: EventTarget | null): boolean {
-  if (!(t instanceof HTMLElement)) return false;
-  return t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName);
-}
 
 /** 左側工具列；單鍵快捷鍵（不含修飾鍵、不在輸入框中、未停用時）切換工具 */
 export function ToolRail({ tool, mirror, disabled, onTool, onToggleMirror }: Props) {

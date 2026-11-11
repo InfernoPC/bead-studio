@@ -1,10 +1,11 @@
 // 「連接 AI」：教新手把 Claude Code 透過 MCP 接到這個伺服器。指令可複製；
 // 瀏覽器不給剪貼簿（非安全來源、權限被拒）時改為選取指令文字，請使用者自己按複製。
 import { useEffect, useRef, useState } from 'react';
+import { MOD } from '../lib/keyboard';
 import type { ConnState } from '../lib/serverState';
 import { Popover, usePopover } from './Popover';
 
-const MOD_C = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘C' : 'Ctrl+C';
+const MOD_C = `${MOD}C`;
 
 export function mcpCommand(mcpUrl: string) {
   return `claude mcp add --transport http beads ${mcpUrl}`;

@@ -8,6 +8,7 @@ import { callTool, toolError, type StateSnapshot } from '../lib/api';
 import { BounceTracker } from '../lib/bounce';
 import { displayDesign, makeCtx, previewOps } from '../lib/clientCore';
 import type { EditorAction, EditorState } from '../lib/editorState';
+import { isTyping } from '../lib/keyboard';
 import { interpolate, strokeToPaste, type Cell } from '../lib/stroke';
 import { cellAt, zoomAround, type View } from '../lib/viewport';
 
@@ -18,11 +19,6 @@ type Props = {
 
 const MAX_CELL = 36;
 const FIT_GAP = 16;
-
-function isTyping(t: EventTarget | null): boolean {
-  if (!(t instanceof HTMLElement)) return false;
-  return t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName);
-}
 
 /** 空白鍵本身有作用的控制項（按鈕、連結、表單欄位等） */
 function isControl(t: EventTarget | null): boolean {
