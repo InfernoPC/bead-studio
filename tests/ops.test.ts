@@ -115,6 +115,19 @@ describe('applyOps', () => {
     expect(d.mask).toBe('0'.repeat(100));
   });
 
+  it('move/rotate/mirror re-place existing beads even if their color is no longer in range', () => {
+    const d0 = paint(smallDesign(), [[0, 0, 'A1'], [1, 0, 'H1']]);
+    d0.variants[0].paletteMode = 'owned';
+    const ctx = { palette, inventory: { H1: { owned: true, count: 9 } } };
+    let d = applyOps(d0, [{ op: 'move', region: { x: 0, y: 0, w: 2, h: 1 }, dx: 2, dy: 2 }], ctx).design;
+    expect(cell(d, 2, 2)).toBe('A1');
+    d = applyOps(d, [{ op: 'rotate', region: { x: 2, y: 2, w: 2, h: 2 }, turns: 2 }], ctx).design;
+    expect(cell(d, 3, 3)).toBe('A1');
+    d = applyOps(d, [{ op: 'mirror', region: { x: 2, y: 3, w: 2, h: 1 }, axis: 'h' }], ctx).design;
+    expect(cell(d, 2, 3)).toBe('A1');
+    expect(() => applyOps(d, [{ op: 'rect', x: 0, y: 0, w: 1, h: 1, color: 'A1' }], ctx)).toThrow(/不在此版本的色彩範圍/);
+  });
+
   it('rotate 90 on a non-square region is rejected', () => {
     expect(() => applyOps(smallDesign(), [{ op: 'rotate', region: { x: 0, y: 0, w: 2, h: 3 }, turns: 1 }], ctxAll)).toThrow(/正方形/);
   });

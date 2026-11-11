@@ -6,7 +6,7 @@ import { MAX_OPS, OpSchema, type Op } from './opSchema';
 import { allowedCodes, stockCapacity, type Inventory, type Palette } from './palette';
 import { ellipsePts, floodRegion, linePts, polygonPts, rectPts, regionPts, type Clip } from './raster';
 import { unrle } from './textCodec';
-import { checkColor, getCell, inGrid, setCell, type Work } from './work';
+import { checkColor, getCell, inGrid, placeCell, setCell, type Work } from './work';
 
 export type OpCtx = { palette: Palette; inventory: Inventory };
 export type Summary = { variant: string; total: number; counts: Record<string, number>; delta: Record<string, number>; clipped: number };
@@ -62,7 +62,7 @@ function runOp(w: Work, op: Op): void {
     case 'move': {
       const src = regionPts(op.region, w.cols, w.rows).map(([x, y]) => [x, y, getCell(w, x, y)] as const);
       src.forEach(([x, y]) => setCell(w, x, y, null));
-      src.forEach(([x, y, c]) => { if (c !== null) setCell(w, x + op.dx, y + op.dy, c); });
+      src.forEach(([x, y, c]) => { if (c !== null) placeCell(w, x + op.dx, y + op.dy, c); });
       return;
     }
     case 'mirror': {
@@ -71,7 +71,7 @@ function runOp(w: Work, op: Op): void {
       copy.forEach(([i, j, c]) => {
         const ti = op.axis === 'h' ? x + rw - 1 - (i - x) : i;
         const tj = op.axis === 'v' ? y + rh - 1 - (j - y) : j;
-        if (inGrid(w, ti, tj)) w.cells[tj * w.cols + ti] = c;
+        if (inGrid(w, ti, tj)) w.cells[tj * w.cols + ti] = c; // 既有豆子直接寫入，不重新檢查色彩範圍
       });
       return;
     }
@@ -83,7 +83,7 @@ function runOp(w: Work, op: Op): void {
       copy.forEach(([u0, v0, c]) => {
         let u = u0, v = v0;
         for (let k = 0; k < op.turns; k++) [u, v] = [rw - 1 - v, u];
-        setCell(w, x + u, y + v, c);
+        placeCell(w, x + u, y + v, c);
       });
       return;
     }

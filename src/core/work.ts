@@ -31,3 +31,9 @@ export function setCell(w: Work, x: number, y: number, code: string | null): voi
   if (code !== null) checkColor(w, code);
   w.cells[y * w.cols + x] = code;
 }
+
+/** 搬移既有的豆子（move/rotate/mirror）：不重新檢查色彩範圍，因為庫存可能已經變動 */
+export function placeCell(w: Work, x: number, y: number, code: string | null): void {
+  if (!inGrid(w, x, y)) { w.clipped++; return; }
+  w.cells[y * w.cols + x] = code;
+}
