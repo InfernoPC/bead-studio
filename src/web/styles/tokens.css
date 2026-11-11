@@ -1,4 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Huninn&display=swap');
+/* 粉圓體（Huninn，OFL）自帶在套件裡：不向 Google Fonts 要字型，不擋住首次繪製。
+   依 unicode-range 分成很多小檔，瀏覽器只下載畫面上用到的字；font-display: swap 先用後備字型顯示 */
+@import '@fontsource/huninn/400.css';
 :root {
   --paper: #F6EEDF; --card: #FFFDF8; --ink: #4A3A2E; --ink-soft: #725D4E;
   --board: #EADBC4; --peg: #D9C6A6; --peach: #E8A87C; --alert: #B5402F;
