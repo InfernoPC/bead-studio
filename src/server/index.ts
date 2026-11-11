@@ -8,6 +8,7 @@ const store = new DesignStore({
 });
 store.load();
 const port = Number(process.env.PORT ?? 5174);
-const app = buildApp(store, { vision: (process.env.BEADS_VISION as Vision) ?? 'auto' });
+const allowedHosts = (process.env.BEADS_ALLOWED_HOSTS ?? '').split(',').map((h) => h.trim()).filter(Boolean);
+const app = buildApp(store, { vision: (process.env.BEADS_VISION as Vision) ?? 'auto', allowedHosts });
 await app.listen({ port, host: '127.0.0.1' });
 console.log(`🫘 Bead Studio: http://localhost:${port}  (MCP: http://localhost:${port}/mcp)`);

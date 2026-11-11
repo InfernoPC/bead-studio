@@ -25,3 +25,4 @@ claude mcp add --transport http beads http://localhost:5174/mcp
 | `BEADS_VISION` | auto | `off`：render_preview 改回傳文字描述（給不能看圖的模型） |
 | `BEADS_DATA_DIR` | data | 設計、色表、庫存 |
 | `BEADS_CONFIG_DIR` | config | 檢查器門檻 `checks.json` |
+| `BEADS_ALLOWED_HOSTS` | （空） | 額外允許的 Host（`host:port`，逗號分隔）；預設只接受 `localhost:PORT` 與 `127.0.0.1:PORT`，其他 Host／Origin 一律 403 |

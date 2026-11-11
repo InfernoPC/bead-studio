@@ -8,8 +8,34 @@ import type { DesignStore } from './store';
 
 const VIEWS: View[] = ['flat', 'pattern', '3d', 'ironed'];
 
-export function buildApp(store: DesignStore, opts: { vision?: Vision } = {}) {
+export type AppOpts = {
+  vision?: Vision;
+  /** 額外允許的 Host（host:port），預設只允許 localhost:PORT 與 127.0.0.1:PORT */
+  allowedHosts?: string[];
+};
+
+function hostOf(origin: string): string | null {
+  try { return new URL(origin).host.toLowerCase() || null; } catch { return null; }
+}
+
+export function buildApp(store: DesignStore, opts: AppOpts = {}) {
   const app = Fastify({ logger: false });
+
+  // 防 DNS rebinding／跨站請求：Host 與 Origin 都必須是本機或明確允許的主機
+  const extra = (opts.allowedHosts ?? []).map((h) => h.trim().toLowerCase()).filter(Boolean);
+  const allowedHosts = () => {
+    const addr = app.server.address();
+    const port = addr && typeof addr === 'object' ? addr.port : undefined;
+    return new Set([...(port ? [`localhost:${port}`, `127.0.0.1:${port}`] : []), ...extra]);
+  };
+  app.addHook('onRequest', async (req, reply) => {
+    const allowed = allowedHosts();
+    const host = req.headers.host?.toLowerCase();
+    const origin = req.headers.origin;
+    if (!host || !allowed.has(host) || (origin !== undefined && !allowed.has(hostOf(origin) ?? ''))) {
+      return reply.code(403).send({ error: '拒絕存取：不允許的 Host 或 Origin' });
+    }
+  });
 
   app.get('/health', async () => ({ ok: true }));
 

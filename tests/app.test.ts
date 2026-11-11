@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { request } from 'node:http';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { DesignStore } from '../src/server/store';
@@ -12,6 +13,15 @@ import { FIX_COLORS } from './fixtures';
 let app: ReturnType<typeof buildApp>;
 let base: string;
 let store: DesignStore;
+
+function rawGet(path: string, headers: Record<string, string>): Promise<number> {
+  const u = new URL(base);
+  return new Promise((resolve, reject) => {
+    const r = request({ host: u.hostname, port: u.port, path, method: 'GET', headers }, (res) => { res.resume(); resolve(res.statusCode!); });
+    r.on('error', reject);
+    r.end();
+  });
+}
 
 beforeAll(async () => {
   const dir = mkdtempSync(join(tmpdir(), 'beads-app-'));
@@ -57,5 +67,27 @@ describe('http app', () => {
     expect((await fetch(`${u}?scale=1000`)).status).toBe(400);
     expect((await fetch(`${u}?scale=abc`)).status).toBe(400);
     expect((await fetch(`${u}?variant=v9`)).status).toBe(404);
+  });
+  it('rejects requests whose Host is not localhost (DNS rebinding)', async () => {
+    const port = new URL(base).port;
+    expect(await rawGet('/health', { host: `evil.example:${port}` })).toBe(403);
+    expect(await rawGet('/mcp', { host: `evil.example:${port}` })).toBe(403);
+    expect(await rawGet('/health', { host: `localhost:${port}` })).toBe(200);
+    expect(await rawGet('/health', { host: `127.0.0.1:${port}` })).toBe(200);
+  });
+  it('rejects cross-origin requests even with a good Host', async () => {
+    const port = new URL(base).port;
+    expect(await rawGet('/health', { host: `localhost:${port}`, origin: 'http://evil.example' })).toBe(403);
+    expect(await rawGet('/health', { host: `localhost:${port}`, origin: 'null' })).toBe(403);
+    expect(await rawGet('/health', { host: `localhost:${port}`, origin: `http://127.0.0.1:${port}` })).toBe(200);
+  });
+  it('accepts extra allowed hosts', async () => {
+    const extra = buildApp(store, { allowedHosts: ['beads.lan:8080'] });
+    await extra.ready();
+    const r = await extra.inject({ method: 'GET', url: '/health', headers: { host: 'beads.lan:8080' } });
+    expect(r.statusCode).toBe(200);
+    const bad = await extra.inject({ method: 'GET', url: '/health', headers: { host: 'evil.example' } });
+    expect(bad.statusCode).toBe(403);
+    await extra.close();
   });
 });

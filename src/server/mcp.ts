@@ -200,6 +200,7 @@ export function buildMcpServer(store: DesignStore, opts: { vision?: Vision } = {
     description: '匯出 PNG（含可還原的 metadata）。variant 填 "all" 會並排所有版本',
     inputSchema: { path: z.string(), designId, variant, view: ViewE.default('flat'), scale: z.number().min(0.5).max(4).default(2) },
   }, wrap(async ({ path, designId: id, variant: v, view, scale }) => {
+    if (!path.toLowerCase().endsWith('.png')) throw new OpError('bad_path', `匯出路徑必須以 .png 結尾：${path}`);
     const d = store.get(id);
     writeFileSync(path, embedDesign(await renderPng(d, store.palette, { variant: v, view: view as View, scale }), d));
     return ok(`已匯出 ${path}`);

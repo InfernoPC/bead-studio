@@ -134,6 +134,16 @@ describe('MCP tools', () => {
     expect(store.list().length).toBe(before + 1);
   });
 
+  it('export_png only writes .png paths', async () => {
+    const { text } = await connect();
+    await text('new_design', NEW);
+    const r = await text('export_png', { path: join(dir, 'x.txt') });
+    expect(r.ok).toBe(false);
+    expect(r.text).toMatch(/bad_path/);
+    const ok = await text('export_png', { path: join(dir, 'UP.PNG') });
+    expect(ok.ok).toBe(true);
+  });
+
   it('import_image falls back to image conversion for a plain PNG', async () => {
     const { text } = await connect();
     await text('new_design', NEW);
