@@ -467,3 +467,60 @@ button:disabled, button[aria-disabled="true"] { cursor: not-allowed; opacity: .4
 .keep-choice legend { padding: 0 4px; font-size: var(--fs-xs); color: var(--ink-soft); }
 .radio { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); cursor: pointer; }
 .radio input { margin: 0; accent-color: var(--ink); }
+
+/* 提示條的一般結果（導入圖片的還原／轉換說明）：同一個位置，用安靜的墨色；伺服器的多行文字照原樣換行 */
+.topbar-alert.is-info { color: var(--ink); box-shadow: var(--shadow-pop); }
+.topbar-alert-text { white-space: pre-line; max-height: 40vh; overflow-y: auto; scrollbar-width: thin; }
+
+/* ---- 連接 AI ---- */
+.connect-btn { position: relative; }
+.connect-dot {
+  position: absolute; top: 2px; right: 2px; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--alert); box-shadow: 0 0 0 2px var(--paper);
+}
+.connect-pop { width: 360px; gap: 12px; }
+.connect-title { margin: 0; font-size: var(--fs-md); font-weight: 700; }
+.connect-steps { margin: 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 10px; line-height: 1.6; }
+.connect-steps li::marker { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.connect-cmd {
+  display: flex; align-items: flex-start; gap: 8px; margin-top: 6px;
+  padding: 8px 8px 8px 10px; border-radius: 10px; background: var(--paper); border: 1.5px solid var(--line);
+}
+.connect-code {
+  flex: 1; min-width: 0; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: var(--fs-xs);
+  line-height: 1.6; overflow-wrap: anywhere; user-select: all;
+}
+.connect-copy { min-width: 5.5em; }
+.connect-cmd + .field-hint { margin-top: 6px; }
+.connect-note { padding-top: 10px; border-top: 1px solid var(--line); }
+.connect-status { display: flex; align-items: center; gap: 6px; margin: -4px 0 0; font-size: var(--fs-xs); color: var(--ink-soft); }
+.connect-status-dot { width: 7px; height: 7px; border-radius: 50%; background: color-mix(in srgb, var(--ink-soft) 70%, transparent); }
+.connect-status.is-off { color: var(--alert); }
+.connect-status.is-off .connect-status-dot { background: var(--alert); }
+
+/* ---- 拖曳導入 ---- */
+/* 不接收滑鼠事件：拖曳事件照常落在底下的元素上，計數器才對得上 */
+.drop-overlay {
+  position: fixed; inset: 0; z-index: 40; pointer-events: none;
+  display: grid; place-items: center; padding: 24px;
+  background: color-mix(in srgb, var(--paper) 72%, transparent);
+}
+.drop-target {
+  width: min(560px, 100%); height: min(320px, 60vh);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  border: 2px dashed color-mix(in srgb, var(--ink) 35%, transparent); border-radius: var(--r-lg);
+  background: var(--card); box-shadow: var(--shadow-modal); font-size: var(--fs-lg);
+}
+.drop-target svg { width: 36px; height: 36px; fill: none; stroke: var(--ink-soft); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.drop-target.is-off { color: var(--alert); border-color: color-mix(in srgb, var(--alert) 45%, transparent); }
+.drop-target.is-off svg { stroke: var(--alert); }
+
+.import-card .modal-body > form { gap: 12px; }
+.import-file { margin: -8px 0 0; font-size: var(--fs-xs); color: var(--ink-soft); overflow-wrap: anywhere; }
+.import-target { margin: 0; font-size: var(--fs-sm); }
+.import-options { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; border: 1.5px solid var(--line); border-radius: 12px; }
+.check { display: flex; align-items: flex-start; gap: 8px; font-size: var(--fs-sm); cursor: pointer; }
+.check input { margin: 3px 0 0; width: 15px; height: 15px; accent-color: var(--ink); cursor: pointer; flex: none; }
+.check .field-hint { display: block; }
+.import-card .modal-note { margin: 0; }
+.import-card .modal-alert { margin-top: 10px; }

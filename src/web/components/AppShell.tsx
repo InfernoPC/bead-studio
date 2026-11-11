@@ -8,6 +8,7 @@ import { ChecksPanel, useIssues } from './ChecksPanel';
 import { BeadTray } from './BeadTray';
 import { BoardDialog } from './BoardDialog';
 import { Editor } from './Editor';
+import { ImportOverlay, type Notice } from './ImportOverlay';
 import { NewDesignDialog } from './NewDesignDialog';
 import { OfflineBanner } from './OfflineBanner';
 import { Preview3D } from './Preview3D';
@@ -41,6 +42,9 @@ export function AppShell({ conn, snapshot, editor, dispatch }: Props) {
   const variant = shown ? getVariant(shown) : null;
   const issues = useIssues(shown, snapshot?.palette, snapshot?.inventory, snapshot?.checks);
   // 建立新作品（作品選單、空狀態）與面板設定（狀態列的尺寸）對話框
+  // 導入圖片的結果，顯示在工具列下方的提示條
+  const [importNotice, setImportNotice] = useState<Notice | null>(null);
+  const closeImportNotice = useCallback(() => setImportNotice(null), []);
   const [dialog, setDialog] = useState<'new' | 'board' | null>(null);
   const closeDialog = useCallback(() => setDialog(null), []);
   // 離線時不能改，開著的對話框也一併關掉
@@ -50,7 +54,10 @@ export function AppShell({ conn, snapshot, editor, dispatch }: Props) {
 
   return (
     <div className="shell">
-      <TopBar design={design} designs={snapshot?.designs ?? []} history={snapshot?.history ?? null} editable={editable} onNewDesign={() => setDialog('new')} />
+      <TopBar design={design} designs={snapshot?.designs ?? []} history={snapshot?.history ?? null} editable={editable}
+        conn={conn} mcpUrl={snapshot?.mcpUrl ?? null} notice={importNotice} onCloseNotice={closeImportNotice}
+        onNewDesign={() => setDialog('new')}
+      />
       <OfflineBanner conn={conn} />
       <div className="workspace">
         <ToolRail tool={editor.tool} mirror={editor.mirror} disabled={!editable} onTool={setTool} onToggleMirror={toggleMirror} />
@@ -95,6 +102,7 @@ export function AppShell({ conn, snapshot, editor, dispatch }: Props) {
         />
       </div>
       <NewDesignDialog open={dialog === 'new'} onClose={closeDialog} />
+      <ImportOverlay design={design} editable={editable} onNotice={setImportNotice} />
       {design && <BoardDialog open={dialog === 'board'} design={design} onClose={closeDialog} />}
     </div>
   );

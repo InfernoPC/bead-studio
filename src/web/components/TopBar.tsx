@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import type { Design } from '../../core/model';
 import { callTool, toolError, type DesignSummary, type HistoryDepth } from '../lib/api';
+import type { ConnState } from '../lib/serverState';
 import { PREF_LABEL, useThemePref, type ThemePref } from '../lib/theme';
+import { ConnectAI } from './ConnectAI';
 import { DesignMenu } from './DesignMenu';
 import { ExportMenu } from './ExportMenu';
+import type { Notice } from './ImportOverlay';
 import { SnapshotMenu } from './SnapshotMenu';
 import { VariantTabs } from './VariantTabs';
 
@@ -18,11 +21,14 @@ const MOD = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator
 
 type Props = {
   design: Design | null; designs: DesignSummary[]; history: HistoryDepth | null; editable: boolean;
+  conn: ConnState; mcpUrl: string | null;
+  /** 工具列以外的結果（例如導入圖片）：和伺服器拒絕的說明用同一個提示條 */
+  notice: Notice | null; onCloseNotice(): void;
   onNewDesign(): void;
 };
 
-/** 上方工具列：作品選單｜配色版本分頁｜形狀鎖定、復原／重做、快照、匯出｜外觀。伺服器拒絕時在工具列下方顯示提示條 */
-export function TopBar({ design, designs, history, editable, onNewDesign }: Props) {
+/** 上方工具列：作品選單｜配色版本分頁｜形狀鎖定、復原／重做、快照、匯出｜連接 AI、外觀。伺服器拒絕時在工具列下方顯示提示條 */
+export function TopBar({ design, designs, history, editable, conn, mcpUrl, notice, onCloseNotice, onNewDesign }: Props) {
   const [themePref, cycleTheme] = useThemePref();
   const themeLabel = `外觀：${PREF_LABEL[themePref]}`;
   const [error, setError] = useState<string | null>(null);
@@ -30,11 +36,16 @@ export function TopBar({ design, designs, history, editable, onNewDesign }: Prop
   useEffect(() => setError(null), [designId]);
 
   // 工具列上的修改都走這裡：失敗時顯示伺服器的說明，成功就清掉舊的提示
+  // 新的動作開始時，舊的導入結果就收起來
   const act = useCallback(async (name: string, args: Record<string, unknown>) => {
+    onCloseNotice();
     const res = await callTool(name, args);
     setError(res.ok ? null : toolError(res.text).message);
     return res;
-  }, []);
+  }, [onCloseNotice]);
+  // 導入圖片有了新結果：蓋過舊的拒絕說明
+  useEffect(() => { if (notice) setError(null); }, [notice]);
+  const banner: Notice | null = error ? { text: error, tone: 'alert' } : notice;
 
   const off = !editable;
   // 沒有步驟可復原／重做：用 aria-disabled（按鈕還能保有焦點，按到最後一步時焦點不會掉出去）
@@ -84,13 +95,14 @@ export function TopBar({ design, designs, history, editable, onNewDesign }: Prop
         </>
       )}
       {!design && <span className="topbar-spacer" />}
+      <ConnectAI conn={conn} mcpUrl={mcpUrl} />
       <button type="button" className="icon-btn theme-btn" aria-label={themeLabel} title={themeLabel} onClick={cycleTheme}>
         <svg viewBox="0 0 24 24" aria-hidden="true">{THEME_ICON[themePref]}</svg>
       </button>
-      {error && (
-        <div className="topbar-alert" role="alert">
-          <span className="topbar-alert-text">{error}</span>
-          <button type="button" className="icon-btn" aria-label="關閉提示" onClick={() => setError(null)}>
+      {banner && (
+        <div className={`topbar-alert${banner.tone === 'info' ? ' is-info' : ''}`} role={banner.tone === 'info' ? 'status' : 'alert'}>
+          <span className="topbar-alert-text">{banner.text}</span>
+          <button type="button" className="icon-btn" aria-label="關閉提示" onClick={() => (error ? setError(null) : onCloseNotice())}>
             <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 6 8 8M14 6l-8 8" /></svg>
           </button>
         </div>
