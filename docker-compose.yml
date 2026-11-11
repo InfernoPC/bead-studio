@@ -1,0 +1,18 @@
+services:
+  bead-studio:
+    build: .
+    image: bead-studio:latest
+    container_name: bead-studio
+    restart: unless-stopped
+    ports:
+      # 只開在本機，區網其他電腦連不到
+      - "127.0.0.1:5174:5174"
+    environment:
+      BEADS_VISION: auto
+      # 匯入／匯出只能用這個資料夾；容器內外路徑相同，AI 給的主機路徑可以直接用
+      BEADS_FILES_DIR: ${HOME}/BeadStudio
+      BEADS_HOME_DIR: ${HOME}
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+      - ${HOME}/BeadStudio:${HOME}/BeadStudio
