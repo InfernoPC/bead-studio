@@ -50,4 +50,12 @@ describe('http app', () => {
   it('404s for unknown design export', async () => {
     expect((await fetch(`${base}/api/designs/nope/export.png`)).status).toBe(404);
   });
+  it('rejects bad export params', async () => {
+    const d = store.list()[0];
+    const u = `${base}/api/designs/${d.id}/export.png`;
+    expect((await fetch(`${u}?view=bogus`)).status).toBe(400);
+    expect((await fetch(`${u}?scale=1000`)).status).toBe(400);
+    expect((await fetch(`${u}?scale=abc`)).status).toBe(400);
+    expect((await fetch(`${u}?variant=v9`)).status).toBe(404);
+  });
 });
