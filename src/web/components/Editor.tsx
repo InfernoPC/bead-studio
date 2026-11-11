@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type PointerEvent as ReactPointerEvent } from 'react';
 import { getVariant, type Design } from '../../core/model';
 import type { Op } from '../../core/opSchema';
-import type { Palette } from '../../core/palette';
-import { drawBeadFlat, drawFlat, flatLayout, UI } from '../../core/render/draw';
+import { drawBeadFlat, flatLayout } from '../../core/render/draw';
+import { drawBoard, readTokens } from '../lib/boardRender';
 import { callTool, type StateSnapshot } from '../lib/api';
 import { displayDesign, makeCtx, previewOps } from '../lib/clientCore';
 import type { EditorAction, EditorState } from '../lib/editorState';
@@ -14,120 +14,18 @@ type Props = {
   dispatch: Dispatch<EditorAction>; editable: boolean; onNotice(text: string | null): void;
 };
 
-const FLAT = { pegs: true, rulers: true, guides: true, margin: true, markers: true } as const;
 const MAX_CELL = 36;
 const FIT_GAP = 16;
-const DIM = 0.35;
-
-type Tokens = { alert: string; ink: string; inkSoft: string; inspect: string };
-function readTokens(): Tokens {
-  const s = getComputedStyle(document.documentElement);
-  const v = (name: string) => s.getPropertyValue(name).trim();
-  return { alert: v('--alert'), ink: v('--ink'), inkSoft: v('--ink-soft'), inspect: v('--inspect') };
-}
 
 function isTyping(t: EventTarget | null): boolean {
   if (!(t instanceof HTMLElement)) return false;
   return t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName);
 }
 
-/** 鏡像檢視用的左右翻轉副本（只用於繪製，資料不變） */
-function mirrored(d: Design): Design {
-  const flip = (cells: (string | null)[]) => {
-    const out = cells.slice();
-    for (let j = 0; j < d.rows; j++) for (let i = 0; i < d.cols; i++) out[j * d.cols + i] = cells[j * d.cols + d.cols - 1 - i];
-    return out;
-  };
-  return {
-    ...d,
-    variants: d.variants.map((v) => (v.id === d.activeVariant ? { ...v, cells: flip(v.cells) } : v)),
-    markers: d.markers.map((m) => ({ ...m, x: d.cols - 1 - m.x })),
-  };
-}
-
-/**
- * 畫一格：先用面板色蓋掉，再畫釘子或以 scale 倍（以格子中心縮放）畫豆子。
- * Task 8 的跳動動畫用它在 drawFlat 之後重畫動畫中的格子。
- */
-export function paintCell(ctx: CanvasRenderingContext2D, pad: number, cell: number, i: number, j: number, hex: string | null, scale: number): void {
-  const x = pad + i * cell, y = pad + j * cell;
-  ctx.fillStyle = UI.board; ctx.fillRect(x, y, cell, cell);
-  const cx = x + cell / 2, cy = y + cell / 2;
-  if (!hex) {
-    ctx.fillStyle = UI.peg; ctx.beginPath(); ctx.arc(cx, cy, Math.max(1, cell * 0.1), 0, Math.PI * 2); ctx.fill();
-    return;
-  }
-  if (scale > 0) drawBeadFlat(ctx, cx, cy, cell * 0.47 * scale, hex);
-}
-
-type BoardOpts = {
-  palette: Palette; cell: number; mirror: boolean; tokens: Tokens;
-  highlightCode: string | null; highlightCells: [number, number][] | null;
-  /** 個別格子的縮放（格子索引為資料座標）；Task 8 使用 */
-  cellScale?: Map<number, number>;
-};
-
-/** 畫整張面板（面板座標，呼叫端負責縮放平移的 transform） */
-function drawBoard(ctx: CanvasRenderingContext2D, design: Design, o: BoardOpts): void {
-  const d = o.mirror ? mirrored(design) : design;
-  const v = getVariant(d);
-  const cs = o.cell;
-  const { pad } = flatLayout(d, { cell: cs, rulers: true });
-  drawFlat(ctx, d, v, o.palette, { cell: cs, ...FLAT });
-  const dx = (i: number) => (o.mirror ? d.cols - 1 - i : i);
-
-  if (o.mirror) {
-    // 上方尺規跟著翻轉：第 1 欄在右邊
-    ctx.fillStyle = UI.bg; ctx.fillRect(pad, 0, d.cols * cs, pad);
-    ctx.fillStyle = UI.ruler; ctx.font = `${Math.max(8, Math.round(Math.min(cs, 18) * 0.6))}px sans-serif`;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    for (let i = 0; i < d.cols; i += 5) ctx.fillText(String(i + 1), pad + dx(i) * cs + cs / 2, pad / 2);
-  }
-
-  if (o.cellScale) {
-    for (const [idx, s] of o.cellScale) {
-      const code = design.variants.find((x) => x.id === design.activeVariant)!.cells[idx];
-      paintCell(ctx, pad, cs, dx(idx % d.cols), Math.floor(idx / d.cols), code ? o.palette.get(code)?.displayHex ?? '#FF00FF' : null, s);
-    }
-  }
-
-  // 超出留邊的豆子：紅框
-  const m = d.board.margin;
-  if (m > 0) {
-    ctx.strokeStyle = o.tokens.alert; ctx.lineWidth = Math.max(1, cs * 0.08);
-    for (let j = 0; j < d.rows; j++) for (let i = 0; i < d.cols; i++) {
-      if (!v.cells[j * d.cols + i]) continue;
-      if (i >= m && j >= m && i < d.cols - m && j < d.rows - m) continue;
-      const inset = ctx.lineWidth / 2;
-      ctx.strokeRect(pad + i * cs + inset, pad + j * cs + inset, cs - inset * 2, cs - inset * 2);
-    }
-  }
-
-  // 單色高亮：其他格子暗化
-  if (o.highlightCode) {
-    ctx.save(); ctx.globalAlpha = DIM; ctx.fillStyle = o.tokens.ink;
-    for (let k = 0; k < v.cells.length; k++) {
-      if (v.cells[k] === o.highlightCode) continue;
-      ctx.fillRect(pad + (k % d.cols) * cs, pad + Math.floor(k / d.cols) * cs, cs, cs);
-    }
-    ctx.restore();
-  }
-
-  // 檢查器高亮：暗化其他格子＋黃圈
-  if (o.highlightCells) {
-    const keep = new Set(o.highlightCells.map(([x, y]) => y * d.cols + dx(x)));
-    ctx.save(); ctx.globalAlpha = DIM; ctx.fillStyle = o.tokens.ink;
-    for (let k = 0; k < v.cells.length; k++) {
-      if (!keep.has(k)) ctx.fillRect(pad + (k % d.cols) * cs, pad + Math.floor(k / d.cols) * cs, cs, cs);
-    }
-    ctx.restore();
-    ctx.strokeStyle = o.tokens.inspect; ctx.lineWidth = Math.max(1.5, cs * 0.12);
-    for (const k of keep) {
-      ctx.beginPath();
-      ctx.arc(pad + (k % d.cols) * cs + cs / 2, pad + Math.floor(k / d.cols) * cs + cs / 2, cs * 0.5, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-  }
+/** 空白鍵本身有作用的控制項（按鈕、連結、表單欄位等） */
+function isControl(t: EventTarget | null): boolean {
+  if (!(t instanceof HTMLElement)) return false;
+  return isTyping(t) || !!t.closest('button, a[href], summary, [role="button"], [role="checkbox"], [role="switch"], [role="tab"], [role="menuitem"]');
 }
 
 type Gesture =
@@ -141,7 +39,16 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
   const boardRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0, dpr: 1 });
-  const [view, setView] = useState<View>({ cell: 20, pad: 18, offsetX: 0, offsetY: 0, zoom: editor.zoom });
+  const [view, setViewState] = useState<View>({ cell: 20, pad: 18, offsetX: 0, offsetY: 0, zoom: editor.zoom });
+  // 檢視同時放在 ref：連續的滾輪／拖曳事件在重繪之前就要以上一次的結果為基準
+  const viewRef = useRef(view);
+  const setView = useCallback((next: View | ((v: View) => View)) => {
+    const v = typeof next === 'function' ? next(viewRef.current) : next;
+    if (v === viewRef.current) return;
+    viewRef.current = v;
+    setViewState(v);
+  }, []);
+  const overStage = useRef(false);
   const [space, setSpace] = useState(false);
   const [panning, setPanning] = useState(false);
   const [forbidden, setForbidden] = useState(false);
@@ -153,7 +60,7 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
 
   // 事件處理器裡要讀最新值
   const live = useRef({ view, size, editor, design, shown, editable });
-  live.current = { view, size, editor, design, shown, editable };
+  live.current = { view: viewRef.current, size, editor, design, shown, editable };
 
   /* ---------- 尺寸與高 DPI ---------- */
   useLayoutEffect(() => {
@@ -191,6 +98,12 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
     const p = editor.pending;
     if (p && (p.design.id !== design.id || design.version > p.baseVersion)) dispatch({ type: 'clearPreview' });
   }, [design, editor.pending, dispatch]);
+
+  /* ---------- 拖曳中伺服器有新版本（例如 AI 修改）：把這一筆移到新版本上重新預覽 ---------- */
+  useEffect(() => {
+    const g = gesture.current;
+    if (g && g.kind !== 'pan' && rebase(g)) previewGesture(g);
+  }, [design]);
 
   /* ---------- 繪製 ---------- */
   const frame = useRef(0);
@@ -282,7 +195,27 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
     return ed.mirror ? [d.cols - 1 - c[0], c[1]] : c;
   };
 
+  /** 這一筆的基底落後伺服器時改用最新版本（並重新套用形狀鎖定的過濾）；有改變時回傳 true */
+  const rebase = (g: Extract<Gesture, { kind: 'paint' | 'line' }>): boolean => {
+    const latest = live.current.design;
+    if (latest.id !== g.base.id || latest.version === g.base.version) return false;
+    g.base = latest;
+    if (g.kind === 'paint') {
+      const tool = g.color ? 'pen' : 'eraser';
+      g.cells = g.cells.filter((p) => !isForbidden(latest, tool, p[0], p[1]));
+    }
+    return true;
+  };
+
+  const previewGesture = (g: Extract<Gesture, { kind: 'paint' | 'line' }>) => {
+    if (g.kind === 'line') { preview(g.base, [lineOp(g.from, g.to, g.color)]); return; }
+    const op = strokeToPaste(g.cells, g.color);
+    if (op) preview(g.base, [op]);
+    else dispatch({ type: 'clearPreview' });
+  };
+
   const addToStroke = (g: Extract<Gesture, { kind: 'paint' }>, c: Cell) => {
+    const rebased = rebase(g);
     const path = g.last ? interpolate(g.last, c) : [c];
     g.last = c;
     const tool = g.color ? 'pen' : 'eraser';
@@ -294,7 +227,7 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
       if (isForbidden(g.base, tool, p[0], p[1])) continue;
       g.cells.push(p); added = true;
     }
-    if (added) preview(g.base, [strokeToPaste(g.cells, g.color)!]);
+    if (added || rebased) previewGesture(g);
   };
 
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -358,6 +291,7 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
   };
 
   const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    overStage.current = true;
     const { px, py } = pointFrom(e);
     const g = gesture.current;
     if (g?.kind === 'pan') {
@@ -376,9 +310,10 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
     const c = dataCellAt(px, py);
     if (!c) return;
     if (g?.kind === 'paint') addToStroke(g, c);
-    else if (g?.kind === 'line' && (c[0] !== g.to[0] || c[1] !== g.to[1])) {
+    else if (g?.kind === 'line') {
+      const moved = c[0] !== g.to[0] || c[1] !== g.to[1];
       g.to = c;
-      preview(g.base, [lineOp(g.from, c, g.color)]);
+      if (rebase(g) || moved) previewGesture(g);
     }
   };
 
@@ -398,6 +333,7 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
   };
 
   const onPointerLeave = () => {
+    overStage.current = false;
     hover.current = null;
     setForbidden(false);
     drawOverlay();
@@ -409,22 +345,25 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const r = el.getBoundingClientRect();
-      const v = live.current.view;
+      const v = viewRef.current;
       const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
       const next = zoomAround(v, Math.exp(-e.deltaY * unit * 0.0015), e.clientX - r.left, e.clientY - r.top);
       if (next.zoom === v.zoom) return;
       setView(next);
-      dispatch({ type: 'zoom', factor: next.zoom / live.current.editor.zoom });
+      // 縮放倍率在 reducer 裡相乘，連續事件會累積
+      dispatch({ type: 'zoom', factor: next.zoom / v.zoom });
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
-  }, [dispatch]);
+  }, [dispatch, setView]);
 
   /* ---------- 鍵盤：空白鍵平移、復原／重做 ---------- */
   useEffect(() => {
     const onDown = (e: KeyboardEvent) => {
       if (e.isComposing || isTyping(e.target)) return;
       if (e.code === 'Space') {
+        // 只在游標位於編輯區、且焦點不在按鈕／連結等控制項上時當作平移，否則讓空白鍵照常啟動按鈕
+        if (!overStage.current || isControl(e.target)) return;
         e.preventDefault();
         if (!e.repeat) setSpace(true);
         return;
@@ -457,7 +396,7 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
   return (
     <div
       ref={wrapRef} className="editor" style={{ cursor }}
-      onPointerDown={onPointerDown} onPointerMove={onPointerMove}
+      onPointerEnter={() => { overStage.current = true; }} onPointerDown={onPointerDown} onPointerMove={onPointerMove}
       onPointerUp={() => endGesture(true)} onPointerCancel={() => endGesture(false)} onPointerLeave={onPointerLeave}
       onAuxClick={(e) => e.preventDefault()}
     >
