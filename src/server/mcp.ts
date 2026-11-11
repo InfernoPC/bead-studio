@@ -164,6 +164,11 @@ export function buildMcpServer(store: DesignStore, opts: { vision?: Vision } & P
   server.registerTool('set_shape_lock', { description: '鎖定形狀（只能換色）或解鎖', inputSchema: { designId, locked: z.boolean() } },
     wrap(({ designId: id, locked }) => { store.update(id, (cur) => ({ ...cur, shapeLocked: locked })); return ok(locked ? '🔒 形狀已鎖定' : '🔓 形狀已解鎖'); }));
 
+  server.registerTool('calibrate_color', {
+    description: '校正某色號的顯示色（讓螢幕更接近實物）；hex 填 null 清除校正',
+    inputSchema: { code: z.string(), hex: z.string().nullable() },
+  }, wrap(({ code, hex }) => { store.setCalibration(code, hex); return ok(hex ? `已校正 ${code} 為 ${hex}` : `已清除 ${code} 的校正`); }));
+
   server.registerTool('import_image', {
     description: (opts.filesDir ? `只能使用 ${opts.filesDir} 裡的檔案。` : '') + '導入圖片。含 bead-studio metadata 的 PNG 會還原成新作品；其他圖片會轉換到目前作品的指定版本（覆蓋原內容）',
     inputSchema: { path: z.string(), designId, variant, removeBg: z.boolean().default(false), dither: z.boolean().default(false) },

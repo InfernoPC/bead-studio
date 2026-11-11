@@ -3,6 +3,8 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { OpError } from '../core/errors';
 import { buildMcpServer, type Vision } from './mcp';
 import type { PathOpts } from './paths';
+import { importImageBuffer } from './importBuffer';
+import { createToolClient } from './toolClient';
 import { embedDesign } from './pngmeta';
 import { renderPng, type View } from './render';
 import type { DesignStore } from './store';
@@ -19,8 +21,10 @@ function hostOf(origin: string): string | null {
   try { return new URL(origin).host.toLowerCase() || null; } catch { return null; }
 }
 
-export function buildApp(store: DesignStore, opts: AppOpts = {}) {
+export async function buildApp(store: DesignStore, opts: AppOpts = {}) {
   const app = Fastify({ logger: false });
+  const tools = await createToolClient(store, opts);
+  app.addHook('onClose', async () => { await tools.close(); });
 
   // 防 DNS rebinding／跨站請求：Host 與 Origin 都必須是本機或明確允許的主機
   const extra = (opts.allowedHosts ?? []).map((h) => h.trim().toLowerCase()).filter(Boolean);
@@ -77,6 +81,31 @@ export function buildApp(store: DesignStore, opts: AppOpts = {}) {
       }
     },
   );
+
+  app.get('/api/state', async () => {
+    let current = null;
+    try { current = store.get(); } catch { /* 尚未開啟作品 */ }
+    const port = (app.server.address() as any)?.port;
+    return {
+      designs: store.list(), current, palette: store.paletteColors, inventory: store.inventory,
+      checks: store.checks, mcpUrl: `http://localhost:${port}/mcp`,
+    };
+  });
+
+  app.post<{ Params: { name: string }; Body: Record<string, unknown> }>('/api/tools/:name', async (req) =>
+    tools.call(req.params.name, (req.body ?? {}) as Record<string, unknown>));
+
+  app.addContentTypeParser('application/octet-stream', { parseAs: 'buffer', bodyLimit: 20 * 1024 * 1024 }, (_r, body, done) => done(null, body));
+  app.post<{ Querystring: { variant?: string; removeBg?: string; dither?: string } }>('/api/import', async (req) => {
+    try {
+      const text = await importImageBuffer(store, req.body as Buffer, {
+        variant: req.query.variant, removeBg: req.query.removeBg === '1', dither: req.query.dither === '1',
+      });
+      return { ok: true, text };
+    } catch (e) {
+      return { ok: false, text: e instanceof OpError ? `${e.code}: ${e.message}` : `圖片無法讀取：${(e as Error).message}` };
+    }
+  });
 
   return app;
 }

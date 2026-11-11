@@ -46,7 +46,7 @@ describe('MCP tools', () => {
     const { client } = await connect();
     const names = (await client.listTools()).tools.map((t) => t.name).sort();
     expect(names).toEqual([
-      'apply_ops', 'create_variant', 'describe_design', 'export_png', 'get_design', 'get_palette',
+      'apply_ops', 'calibrate_color', 'create_variant', 'describe_design', 'export_png', 'get_design', 'get_palette',
       'import_image', 'list_designs', 'new_design', 'open_design', 'redo', 'render_preview',
       'restore_snapshot', 'run_checks', 'select_variant', 'set_board', 'set_inventory',
       'set_shape_lock', 'set_variant_mode', 'snapshot', 'undo',

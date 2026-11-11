@@ -19,6 +19,7 @@ const newId = (prefix: string) => `${prefix}-${Date.now().toString(36)}${Math.ra
 
 export class DesignStore extends EventEmitter {
   palette!: Palette;
+  paletteColors: PaletteColor[] = [];
   inventory: Inventory = {};
   checks: ChecksConfig = DEFAULT_CHECKS;
   currentId: string | null = null;
@@ -36,6 +37,7 @@ export class DesignStore extends EventEmitter {
     const errs = validatePalette(colors);
     if (errs.length) throw new Error(`palette.json 有誤：\n${errs.join('\n')}`);
     this.palette = new Palette(colors);
+    this.paletteColors = colors;
     const invPath = join(this.opts.dataDir, 'inventory.json');
     this.inventory = existsSync(invPath) ? JSON.parse(readFileSync(invPath, 'utf8')) : {};
     const chkPath = join(this.opts.configDir, 'checks.json');
@@ -166,6 +168,20 @@ export class DesignStore extends EventEmitter {
     }
     this.inventory = inv;
     writeJsonAtomic(join(this.opts.dataDir, 'inventory.json'), inv);
+    this.emit('meta');
     return inv;
+  }
+
+  setCalibration(code: string, hex: string | null): void {
+    if (!this.palette.has(code)) throw new OpError('unknown_color', `未知色號 ${code}`);
+    if (hex !== null && !/^#[0-9A-Fa-f]{6}$/.test(hex)) throw new OpError('bad_hex', `色碼格式錯誤：${hex}（例如 #E8434F）`);
+    const path = join(this.opts.dataDir, 'palette.json');
+    const colors: PaletteColor[] = JSON.parse(readFileSync(path, 'utf8'));
+    const c = colors.find((x) => x.code === code)!;
+    if (hex === null) delete c.calibratedHex; else c.calibratedHex = hex.toUpperCase();
+    writeJsonAtomic(path, colors);
+    this.palette = new Palette(colors);
+    this.paletteColors = colors;
+    this.emit('meta');
   }
 }
