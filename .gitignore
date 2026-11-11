@@ -5,3 +5,5 @@ data/designs/
 data/state.json
 data/inventory.json
 *.tmp
+test-results/
+playwright-report/
