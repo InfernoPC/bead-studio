@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Layout v4</title>
+<style>
+*{box-sizing:border-box} body{margin:0;padding:24px;background:#F6EFE4;font-family:"PingFang TC","Noto Sans TC",system-ui,sans-serif;color:#5B4636}
+h2{margin:0 0 6px;font-size:22px} .subtitle{margin:0 0 16px;opacity:.75;font-size:14px}
+.app{max-width:1180px;margin:0 auto} .bs-main{grid-template-columns:44px minmax(0,1fr) 280px!important}
+.stage canvas{max-width:100%;height:auto!important}
+</style></head><body>
+<h2>主畫面版面（A 奶油 UI ＋ B 霧面豆）</h2>
+<p class="subtitle">左：平面編輯區 ／ 右：色票＋計數＋檢查 ／ 右下：3D 實體預覽（滾輪縮放，可切換釘板、燙後效果）。這是互動示意，可以點點看。</p>
+
+<style>
+  .app { background:#FBF6EE; color:#5B4636; border-radius:18px; padding:12px; font-family:"PingFang TC","Noto Sans TC",system-ui,sans-serif; font-size:13px; box-shadow:0 6px 20px rgba(120,90,60,.12); }
+  .top { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:4px 4px 10px; border-bottom:1.5px solid #EFE3D0; }
+  .logo { font-weight:800; font-size:15px; margin-right:10px; }
+  .pill { padding:5px 11px; border-radius:999px; background:#F1E6D6; cursor:pointer; white-space:nowrap; }
+  .pill.on { background:#E8A87C; color:#fff; }
+  .seg { display:flex; background:#F1E6D6; border-radius:999px; padding:2px; }
+  .seg span { padding:4px 10px; border-radius:999px; cursor:pointer; }
+  .seg span.on { background:#fff; box-shadow:0 1px 3px rgba(120,90,60,.2); }
+  .sp { flex:1; }
+  .ibtn { width:30px; height:30px; display:inline-grid; place-items:center; border-radius:10px; background:#F1E6D6; cursor:pointer; }
+  .bs-main { display:grid; grid-template-columns: 44px 1fr 270px; gap:12px; margin-top:12px; }
+  .tools { display:flex; flex-direction:column; gap:6px; }
+  .tool { width:40px; height:40px; border-radius:12px; display:grid; place-items:center; background:#fff; box-shadow:0 1px 3px rgba(120,90,60,.15); font-size:17px; cursor:pointer; }
+  .tool.on { background:#E8A87C; }
+  .stage { background:#F4EBDD; border-radius:14px; padding:10px; display:flex; flex-direction:column; align-items:center; gap:6px; box-shadow: inset 0 2px 6px rgba(120,90,60,.12); }
+  .bs-status { display:flex; gap:12px; font-size:12px; opacity:.85; width:100%; justify-content:space-between; }
+  .side { display:flex; flex-direction:column; gap:10px; }
+  .box { background:#fff; border-radius:14px; padding:10px; box-shadow:0 1px 4px rgba(120,90,60,.12); }
+  .box h4 { margin:0 0 8px; font-size:13px; display:flex; justify-content:space-between; }
+  .row { display:flex; align-items:center; gap:8px; padding:4px 6px; border-radius:8px; cursor:pointer; }
+  .row:hover { background:#FBF6EE; }
+  .row.sel { background:#FCEBDD; }
+  .dot { width:18px; height:18px; border-radius:50%; position:relative; box-shadow: inset -2px -2px 3px rgba(0,0,0,.15); }
+  .dot::after { content:""; position:absolute; inset:6px; border-radius:50%; background:rgba(0,0,0,.25); }
+  .code { font-weight:700; width:36px; }
+  .cnt { margin-left:auto; font-variant-numeric: tabular-nums; }
+  .warn { color:#D0574B; font-weight:700; }
+  .ok { color:#6BA368; }
+  .chk { font-size:12px; line-height:1.6; }
+  .pv-ctl { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:6px; font-size:12px; }
+  .pv-ctl label { display:flex; align-items:center; gap:4px; cursor:pointer; }
+  .pv-ctl input[type=range]{ width:90px; }
+  .ck { padding:3px 6px; border-radius:8px; cursor:pointer; }
+  .ck:hover, .ck.on { background:#FCEBDD; }
+  .pal-cur { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+  .pal-cur .big { width:34px; height:34px; border-radius:50%; position:relative; box-shadow: inset -3px -3px 5px rgba(0,0,0,.15), 0 1px 3px rgba(120,90,60,.3); }
+  .pal-cur .big::after { content:""; position:absolute; inset:11px; border-radius:50%; background:rgba(0,0,0,.25); }
+  .pal-tabs { display:flex; gap:4px; margin-bottom:6px; }
+  .pal-tabs span { padding:3px 8px; border-radius:999px; background:#F1E6D6; font-size:11px; cursor:pointer; }
+  .pal-tabs span.on { background:#E8A87C; color:#fff; }
+  .pal-search { width:100%; border:1.5px solid #EFE3D0; border-radius:10px; padding:5px 8px; font-size:12px; margin-bottom:6px; background:#FBF6EE; color:#5B4636; }
+  .pal-grid { display:grid; grid-template-columns: repeat(8, 1fr); gap:5px; max-height:150px; overflow-y:auto; padding:2px; }
+  .sw { aspect-ratio:1; border-radius:50%; position:relative; cursor:pointer; box-shadow: inset -2px -2px 3px rgba(0,0,0,.15); }
+  .sw::after { content:""; position:absolute; inset:34%; border-radius:50%; background:rgba(0,0,0,.22); }
+  .sw.sel { outline:2.5px solid #E8A87C; outline-offset:2px; }
+  .sw.none { opacity:.35; }
+  .sw.none::before { content:""; position:absolute; left:-2px; right:-2px; top:50%; height:1.5px; background:#D0574B; transform:rotate(-45deg); }
+  .pal-recent { display:flex; gap:5px; margin-top:6px; align-items:center; font-size:11px; opacity:.9; }
+  .pal-recent .sw { width:16px; }
+</style>
+
+<div class="app">
+  <div class="top">
+    <span class="logo">🫘 豆豆工作室</span>
+    <span>蘑菇吊飾 ▾</span>
+    <span class="sp"></span>
+    <span style="opacity:.7">配色版本</span>
+    <span class="pill on">理想版</span><span class="pill">有的色</span><span class="pill">庫存版</span><span class="pill">＋</span>
+    <span class="sp"></span>
+    <span class="seg"><span class="on">🔓 可增減</span><span>🔒 只換色</span></span>
+    <span class="ibtn">↶</span><span class="ibtn">↷</span>
+    <span class="pill">📷 快照</span>
+    <span class="pill on">⬇ 匯出</span>
+  </div>
+
+  <div class="bs-main">
+    <div class="tools">
+      <div class="tool on" title="畫筆">✏️</div>
+      <div class="tool" title="橡皮擦">🧽</div>
+      <div class="tool" title="油漆桶">🪣</div>
+      <div class="tool" title="吸管">💧</div>
+      <div class="tool" title="直線">📏</div>
+      <div class="tool" title="框選/移動">⬚</div>
+      <div class="tool" title="全域換色">🔁</div>
+      <div class="tool" title="掛孔標記">⭕</div>
+      <div class="tool" title="鏡像/背面">🪞</div>
+    </div>
+
+    <div class="stage">
+      <canvas id="ed"></canvas>
+      <div class="bs-status"><span>30 × 30 格 · 8 × 8 cm · 2.6mm 豆</span><span>留邊 2 格（虛線）</span><span>🔍 120%  ➖ ➕</span></div>
+    </div>
+
+    <div class="side">
+      <div class="box">
+        <h4><span>色票</span><span style="opacity:.6;font-weight:400">⚙ 管理庫存</span></h4>
+        <div class="pal-cur"><span class="big" id="curBig"></span><div><b id="curCode"></b> <span id="curName"></span><br><span style="font-size:11px;opacity:.7" id="curStock"></span></div></div>
+        <div class="pal-tabs" id="palTabs"><span data-m="all">全部 MARD</span><span data-m="own" class="on">我有的</span><span data-m="stock">有庫存</span></div>
+        <input class="pal-search" id="palQ" placeholder="🔍 搜尋色號 / 顏色名，例：A07、紅">
+        <div class="pal-grid" id="palGrid"></div>
+        <div class="pal-recent">最近用過：<span id="recent" style="display:flex;gap:5px"></span></div>
+      </div>
+      <div class="box">
+        <h4><span>用量（理想版）</span><span id="total"></span></h4>
+        <div id="counts"></div>
+      </div>
+      <div class="box chk">
+        <h4><span>檢查器</span><span style="opacity:.6;font-weight:400">點項目可在畫布標示</span></h4>
+        <div id="checks"></div>
+      </div>
+      <div class="box">
+        <h4><span>實體預覽 3D</span><span style="opacity:.6">⤢ 放大</span></h4>
+        <div class="pv-ctl">
+          <label><input type="checkbox" id="pvBoard" checked>釘板</label>
+          <label><input type="checkbox" id="pvIron">燙後</label>
+          <label>傾斜<input type="range" id="pvTilt" min="0" max="65" value="40"></label>
+        </div>
+        <canvas id="pv" style="cursor:grab"></canvas>
+        <div style="font-size:11px;opacity:.7;margin-top:4px">1:1 實際大小 ≈ 3.4 × 3.4 cm（滾輪縮放、拖曳旋轉）</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const PAT = [
+    "....KKKKK....",
+    "..KKRRWRRKK..",
+    ".KRRRWWWRRRK.",
+    ".KRWRRWRRWRK.",
+    "KRWWWRRRWWWRK",
+    "KRRWRRRRRWRRK",
+    "KKKKKKKKKKKKK",
+    "...KSSSSSK...",
+    "...KSKSKSK...",
+    "...KSSSSSK...",
+    "...KSSSSSK...",
+    "....KKKKK...."
+  ];
+  const COL = { R:"#E8434F", W:"#FFF8F0", K:"#4A3B3B", S:"#F5D6B4", T:"#E9F1F3" };
+  const CODE = { R:"A07", W:"H02", K:"H07", S:"B03", T:"H01" };
+  const STOCK = { R:200, W:12, K:500, S:80, T:300 };
+  const NAME = { R:"西瓜紅", W:"奶白", K:"可可黑", S:"膚色", T:"透明" };
+  const SERIES = [
+    ["A",[["#FFF4B8","奶油黃"],["#FFE066","檸檬黃"],["#FFC93C","向日葵"],["#FFA94D","橘子"],["#FF7F50","珊瑚橘"],["#F2545B","番茄紅"],["#C9302C","深紅"],["#8E1B2A","酒紅"]]],
+    ["B",[["#FFE3D3","蜜桃"],["#FFC2C7","粉紅"],["#FF8FAB","草莓粉"],["#E05A8A","桃紅"],["#E6C9F2","薰衣草"],["#B388EB","淺紫"],["#7B4FC9","葡萄紫"],["#4A2A7A","深紫"]]],
+    ["C",[["#D8F3F6","冰藍"],["#9AD9EA","天空藍"],["#4FB3D9","湖水藍"],["#2E7EC4","寶藍"],["#1F4E9C","海軍藍"],["#16305E","午夜藍"],["#B9E4D8","薄荷"],["#5CC2A7","土耳其綠"]]],
+    ["D",[["#E3F5C6","嫩芽"],["#B6E07A","草綠"],["#7CC04B","葉綠"],["#3F9142","森林綠"],["#24613A","墨綠"],["#8FA65A","橄欖"],["#C9B27C","卡其"],["#A0794F","可可棕"]]],
+    ["E",[["#F3E1C7","奶茶"],["#E2B98B","焦糖"],["#B98250","肉桂"],["#7A4E2D","咖啡"],["#4E3221","深咖"],["#F5D0B0","淺膚"],["#E8AE87","小麥膚"],["#BF8060","古銅膚"]]],
+    ["H",[["#FFFFFF","純白"],["#F2F0EC","米白"],["#D3D1CE","淺灰"],["#A3A19E","灰"],["#6E6C6A","深灰"],["#3A3938","炭黑"],["#111111","黑"],["#E9F1F3","透明"]]],
+  ];
+  const OWN = {};
+  SERIES.forEach(([ser,list])=>list.forEach(([hex,name],i)=>{
+    const k = ser+(i+1); if(COL[k]) return;
+    COL[k]=hex; CODE[k]=ser+String(i+1).padStart(2,"0"); NAME[k]=name;
+    const h = (i*7 + ser.charCodeAt(0)*3) % 10;
+    OWN[k] = h < 6; STOCK[k] = OWN[k] ? (h<2 ? 0 : 50 + h*30) : 0;
+  }));
+  ["R","W","K","S","T"].forEach(k=>OWN[k]=true);
+  let palMode = "own", recent = ["R","W","K","S"];
+  function shade(hex, amt){ const n=parseInt(hex.slice(1),16); let r=(n>>16)&255,g=(n>>8)&255,b=n&255; const f=amt<0?0:255,t=Math.abs(amt); return `rgb(${Math.round(r+(f-r)*t)},${Math.round(g+(f-g)*t)},${Math.round(b+(f-b)*t)})`; }
+
+  // ---------- flat editor: 30x30 board, pattern at offset ----------
+  const N = 30, OX = 8, OY = 7;
+  const grid = Array.from({length:N},()=>Array(N).fill("."));
+  PAT.forEach((r,j)=>[...r].forEach((c,i)=>{ grid[OY+j][OX+i]=c; }));
+  const hole = [OX+6, OY-1];  // hanging hole marker above cap
+  let cur = "R";
+
+  const ed = document.getElementById("ed"), dpr = window.devicePixelRatio||1, CS = 15, PAD = 18;
+  const EW = N*CS + PAD;
+  ed.width = EW*dpr; ed.height = EW*dpr; ed.style.width = EW+"px"; ed.style.height = EW+"px";
+  const ex = ed.getContext("2d"); ex.scale(dpr,dpr);
+  function drawFlatBead(x,cx,cy,R,base){
+    const g = x.createRadialGradient(cx-R*.2,cy-R*.25,R*.2,cx,cy,R);
+    g.addColorStop(0,shade(base,.12)); g.addColorStop(1,shade(base,-.14));
+    x.fillStyle=g; x.beginPath(); x.arc(cx,cy,R,0,7); x.fill();
+    x.fillStyle=shade(base,-.35); x.beginPath(); x.arc(cx,cy,R*.36,0,7); x.fill();
+  }
+  function drawEd(){
+    ex.clearRect(0,0,EW,EW);
+    ex.fillStyle="#9C8670"; ex.font="9px system-ui"; ex.textAlign="center"; ex.textBaseline="middle";
+    for(let i=0;i<N;i+=5){ ex.fillText(i+1, PAD+i*CS+CS/2, 8); ex.fillText(i+1, 8, PAD+i*CS+CS/2); }
+    ex.fillStyle="#EFE3D0"; ex.beginPath(); ex.roundRect(PAD,PAD,N*CS,N*CS,6); ex.fill();
+    for(let j=0;j<N;j++) for(let i=0;i<N;i++){
+      const cx=PAD+i*CS+CS/2, cy=PAD+j*CS+CS/2, c=grid[j][i];
+      if(c===".") { ex.fillStyle="#E2D2BA"; ex.beginPath(); ex.arc(cx,cy,1.6,0,7); ex.fill(); }
+      else drawFlatBead(ex,cx,cy,CS*.47,COL[c]);
+    }
+    // 5-cell guide lines
+    ex.strokeStyle="rgba(156,134,112,.25)"; ex.lineWidth=1;
+    for(let k=5;k<N;k+=5){ ex.beginPath(); ex.moveTo(PAD+k*CS,PAD); ex.lineTo(PAD+k*CS,PAD+N*CS); ex.moveTo(PAD,PAD+k*CS); ex.lineTo(PAD+N*CS,PAD+k*CS); ex.stroke(); }
+    // margin
+    ex.setLineDash([4,3]); ex.strokeStyle="#E8A87C"; ex.lineWidth=1.5;
+    ex.strokeRect(PAD+2*CS, PAD+2*CS, (N-4)*CS, (N-4)*CS); ex.setLineDash([]);
+    // hanging hole marker
+    const hx=PAD+hole[0]*CS+CS/2, hy=PAD+hole[1]*CS+CS/2;
+    ex.strokeStyle="#D0574B"; ex.lineWidth=2; ex.beginPath(); ex.arc(hx,hy,CS*.42,0,7); ex.stroke();
+    for(let j=0;j<N;j++) for(let i=0;i<N;i++){
+      if(grid[j][i]!=="." && (i<MARGIN||j<MARGIN||i>=N-MARGIN||j>=N-MARGIN)){
+        ex.strokeStyle="rgba(208,87,75,.9)"; ex.lineWidth=1.5; ex.strokeRect(PAD+i*CS+1.5,PAD+j*CS+1.5,CS-3,CS-3);
+      }
+    }
+    if(hl!==null && checkList[hl]){
+      ex.fillStyle="rgba(91,70,54,.35)"; ex.fillRect(PAD,PAD,N*CS,N*CS);
+      checkList[hl].cells.forEach(([i,j])=>{ const cx=PAD+i*CS+CS/2, cy=PAD+j*CS+CS/2;
+        if(grid[j][i]!==".") drawFlatBead(ex,cx,cy,CS*.47,COL[grid[j][i]]);
+        ex.strokeStyle="#FFD45C"; ex.lineWidth=2.5; ex.beginPath(); ex.arc(cx,cy,CS*.55,0,7); ex.stroke(); });
+    }
+  }
+  function paint(e){
+    const r=ed.getBoundingClientRect(), k=EW/r.width; const i=Math.floor(((e.clientX-r.left)*k-PAD)/CS), j=Math.floor(((e.clientY-r.top)*k-PAD)/CS);
+    if(i<0||j<0||i>=N||j>=N) return; grid[j][i]=cur; runChecks(); drawEd(); drawCounts(); drawPv();
+  }
+  let down=false;
+  ed.addEventListener("mousedown",e=>{down=true;paint(e);e.stopPropagation();});
+  ed.addEventListener("mousemove",e=>{ if(down) paint(e); });
+  window.addEventListener("mouseup",()=>down=false);
+
+  // ---------- counts ----------
+  const MARGIN = 2; let hl = null, checkList = [];
+  function runChecks(){
+    const out = [], inMargin = [], lonely = [];
+    for(let j=0;j<N;j++) for(let i=0;i<N;i++){
+      if(grid[j][i]===".") continue;
+      if(i<MARGIN||j<MARGIN||i>=N-MARGIN||j>=N-MARGIN) inMargin.push([i,j]);
+      const nb=[[1,0],[-1,0],[0,1],[0,-1]].filter(([a,b])=>{ const x=i+a,y=j+b; return x>=0&&y>=0&&x<N&&y<N&&grid[y][x]!=="."; }).length;
+      if(nb===0) lonely.push([i,j]);
+    }
+    out.push(inMargin.length ? {lv:"⚠️", t:`${inMargin.length} 顆豆子超出留邊範圍（${MARGIN} 格）`, cells:inMargin} : {lv:"✅", t:`都在留邊範圍內（${MARGIN} 格）`, cells:[]});
+    out.push(lonely.length ? {lv:"⚠️", t:`${lonely.length} 顆孤立浮豆（四周沒有相連，燙完易脫落）`, cells:lonely} : {lv:"✅", t:"沒有孤立浮豆", cells:[]});
+    const [hx,hy]=hole, holeEdge = !(grid[hy+1] && grid[hy+1][hx]!=="." && grid[hy][hx-1]!=="." && grid[hy][hx+1]!==".");
+    out.push(holeEdge ? {lv:"⚠️", t:"掛孔太靠邊，建議外圍加 1 圈透明豆補強", cells:[[hx,hy]]} : {lv:"✅", t:"掛孔位置 OK", cells:[]});
+    const cnt={}; grid.forEach(r=>r.forEach(v=>{ if(v!==".") cnt[v]=(cnt[v]||0)+1; }));
+    Object.keys(cnt).filter(k=>cnt[k]>STOCK[k]).forEach(k=>{ const cells=[]; grid.forEach((r,j)=>r.forEach((v,i)=>{ if(v===k) cells.push([i,j]); })); out.push({lv:"⚠️", t:`${CODE[k]} 庫存不足 ${cnt[k]-STOCK[k]} 顆`, cells}); });
+    checkList = out;
+    document.getElementById("checks").innerHTML = out.map((c,n)=>`<div class="ck ${hl===n?'on':''}" data-n="${n}">${c.lv} ${c.t}</div>`).join("");
+    document.querySelectorAll("#checks .ck").forEach(el=>el.addEventListener("click",ev=>{ const n=+el.dataset.n; hl = (hl===n||!checkList[n].cells.length)?null:n; drawEd(); runChecks(); ev.stopPropagation(); }));
+  }
+  function drawPal(){
+    const q = document.getElementById("palQ").value.trim().toLowerCase();
+    const keys = Object.keys(COL).filter(k=>{
+      if(palMode==="own" && !OWN[k]) return false;
+      if(palMode==="stock" && !(OWN[k] && STOCK[k]>0)) return false;
+      return !q || CODE[k].toLowerCase().includes(q) || NAME[k].includes(q);
+    }).sort((a,b)=>CODE[a].localeCompare(CODE[b]));
+    document.getElementById("palGrid").innerHTML = keys.map(k=>`<span class="sw ${k===cur?'sel':''} ${OWN[k]?'':'none'}" data-k="${k}" title="${CODE[k]} ${NAME[k]}${OWN[k]?' · 庫存 '+STOCK[k]:' · 沒有'}" style="background:${COL[k]}"></span>`).join("") || '<span style="grid-column:1/-1;font-size:12px;opacity:.6">找不到符合的顏色</span>';
+    document.querySelectorAll("#palGrid .sw").forEach(el=>el.addEventListener("click",ev=>{ pick(el.dataset.k); ev.stopPropagation(); }));
+    document.getElementById("recent").innerHTML = recent.map(k=>`<span class="sw ${k===cur?'sel':''}" data-k="${k}" title="${CODE[k]}" style="background:${COL[k]}"></span>`).join("");
+    document.querySelectorAll("#recent .sw").forEach(el=>el.addEventListener("click",ev=>{ pick(el.dataset.k); ev.stopPropagation(); }));
+    document.getElementById("curBig").style.background = COL[cur];
+    document.getElementById("curCode").textContent = CODE[cur];
+    document.getElementById("curName").textContent = NAME[cur];
+    document.getElementById("curStock").textContent = OWN[cur] ? "庫存 "+STOCK[cur]+" 顆" : "沒有這個顏色（理想版可用）";
+  }
+  function pick(k){ cur=k; recent=[k,...recent.filter(x=>x!==k)].slice(0,8); drawPal(); drawCounts(); }
+  document.querySelectorAll("#palTabs span").forEach(el=>el.addEventListener("click",ev=>{
+    palMode=el.dataset.m; document.querySelectorAll("#palTabs span").forEach(x=>x.classList.toggle("on",x===el)); drawPal(); ev.stopPropagation(); }));
+  document.getElementById("palQ").addEventListener("input",drawPal);
+  document.getElementById("palQ").addEventListener("click",e=>e.stopPropagation());
+
+  function drawCounts(){
+    const c={}; let tot=0;
+    grid.forEach(r=>r.forEach(v=>{ if(v!=="."){ c[v]=(c[v]||0)+1; tot++; } }));
+    document.getElementById("total").textContent = "共 "+tot+" 顆";
+    document.getElementById("counts").innerHTML = Object.keys(c).sort((a,b)=>c[b]-c[a]).map(k=>{
+      const n=c[k]||0, lack = n>STOCK[k];
+      return `<div class="row ${k===cur?'sel':''}" data-k="${k}"><span class="dot" style="background:${COL[k]}"></span><span class="code">${CODE[k]}</span><span style="opacity:.7">${NAME[k]}</span><span class="cnt">${n} <span class="${lack?'warn':'ok'}">/ ${STOCK[k]}</span></span></div>`;
+    }).join("");
+    document.querySelectorAll("#counts .row").forEach(el=>el.addEventListener("click",ev=>{ pick(el.dataset.k); ev.stopPropagation(); }));
+  }
+
+  // ---------- 3D preview ----------
+  const pv = document.getElementById("pv"), PS = 246;
+  pv.width=PS*dpr; pv.height=PS*dpr; pv.style.width=PS+"px"; pv.style.height=PS+"px";
+  const px = pv.getContext("2d");
+  let yawDeg = 20, zoom = 1;
+  function drawPv(){
+    const showBoard = document.getElementById("pvBoard").checked, iron = document.getElementById("pvIron").checked;
+    const t = (+document.getElementById("pvTilt").value)*Math.PI/180, y = yawDeg*Math.PI/180;
+    const ct=Math.cos(t), st=Math.sin(t), cy=Math.cos(y), sy=Math.sin(y);
+    px.setTransform(dpr,0,0,dpr,0,0); px.clearRect(0,0,PS,PS);
+    const BH = iron ? 0.55 : 0.85;
+    const raw=(u,v,z)=>{ const rx=u*cy-v*sy, ry=u*sy+v*cy; return [rx, ry*ct - z*st, ry]; };
+    const half = N/2;
+    const s = (PS-10)/(N*1.45) * zoom;
+    const P2=(u,v,z)=>{ const r=raw(u,v,z); return [PS/2 + r[0]*s, PS/2 + r[1]*s, r[2]]; };
+    const corners=[[-half,-half],[half,-half],[half,half],[-half,half]];
+    if(showBoard){
+      px.fillStyle="#D9C6A8";
+      for(let i=0;i<4;i++){ const a=corners[i],b=corners[(i+1)%4]; const q=[P2(a[0],a[1],0),P2(b[0],b[1],0),P2(b[0],b[1],-0.35),P2(a[0],a[1],-0.35)]; px.beginPath(); q.forEach((p,k)=>k?px.lineTo(p[0],p[1]):px.moveTo(p[0],p[1])); px.closePath(); px.fill(); }
+      px.fillStyle="#EFE3D0"; px.beginPath(); corners.forEach(([u,v],k)=>{const p=P2(u,v,0); k?px.lineTo(p[0],p[1]):px.moveTo(p[0],p[1]);}); px.closePath(); px.fill();
+    }
+    const items=[];
+    for(let j=0;j<N;j++) for(let i=0;i<N;i++){ const u=i-N/2+.5, v=j-N/2+.5; items.push({u,v,c:grid[j][i],d:raw(u,v,0)[2]}); }
+    items.sort((a,b)=>a.d-b.d);
+    const R=.47, ex2=R*s, ey2=R*s*ct, H=.17*s;
+    // rounded-square outline in (u,v) for ironed beads
+    const rsq = []; { const a=.5, r=.22, seg=5; const cs=[[a-r,a-r,0],[-(a-r),a-r,Math.PI/2],[-(a-r),-(a-r),Math.PI],[a-r,-(a-r),Math.PI*1.5]];
+      cs.forEach(([cx,cy0,st0])=>{ for(let k=0;k<=seg;k++){ const an=st0+k/seg*Math.PI/2; rsq.push([cx+r*Math.cos(an), cy0+r*Math.sin(an)]); } }); }
+    for(const it of items){
+      const [bx,by]=P2(it.u,it.v,0);
+      if(it.c==="."){ if(showBoard){ px.fillStyle="#E2D2BA"; px.beginPath(); px.ellipse(bx,by,.09*s,.09*s*ct,0,0,7); px.fill(); } continue; }
+      const base=COL[it.c]; const [tx,ty]=P2(it.u,it.v,BH);
+      if(iron){
+        // side: draw shape at bottom (dark) then top
+        px.fillStyle=shade(base,-.3); px.beginPath(); rsq.forEach(([du,dv],k)=>{ const p=P2(it.u+du,it.v+dv,0); k?px.lineTo(p[0],p[1]):px.moveTo(p[0],p[1]); }); px.closePath(); px.fill();
+        for(let z=0.1; z<BH; z+=0.1){ px.fillStyle=shade(base,-.3+z*.3); px.beginPath(); rsq.forEach(([du,dv],k)=>{ const p=P2(it.u+du,it.v+dv,z); k?px.lineTo(p[0],p[1]):px.moveTo(p[0],p[1]); }); px.closePath(); px.fill(); }
+        const g=px.createRadialGradient(tx-ex2*.2,ty-ey2*.2,ex2*.2,tx,ty,ex2*1.2); g.addColorStop(0,shade(base,.1)); g.addColorStop(1,shade(base,-.06));
+        px.fillStyle=g; px.beginPath(); rsq.forEach(([du,dv],k)=>{ const p=P2(it.u+du,it.v+dv,BH); k?px.lineTo(p[0],p[1]):px.moveTo(p[0],p[1]); }); px.closePath(); px.fill();
+        px.fillStyle=shade(base,-.45); px.beginPath(); px.ellipse(tx,ty,H*.55,H*.55*ct,0,0,7); px.fill();
+      } else {
+        if(st>.01){ const g=px.createLinearGradient(bx-ex2,0,bx+ex2,0); g.addColorStop(0,shade(base,-.3)); g.addColorStop(.45,shade(base,-.08)); g.addColorStop(1,shade(base,-.35));
+          px.fillStyle=g; px.beginPath(); px.moveTo(bx-ex2,ty); px.lineTo(bx-ex2,by); px.ellipse(bx,by,ex2,ey2,0,Math.PI,0,true); px.lineTo(bx+ex2,ty); px.closePath(); px.fill(); }
+        const g=px.createRadialGradient(tx-ex2*.2,ty-ey2*.2,ex2*.2,tx,ty,ex2); g.addColorStop(0,shade(base,.12)); g.addColorStop(1,shade(base,-.08));
+        px.fillStyle=g; px.beginPath(); px.ellipse(tx,ty,ex2,ey2,0,0,7); px.fill();
+        px.fillStyle=shade(base,-.4); px.beginPath(); px.ellipse(tx,ty,H,H*ct,0,0,7); px.fill();
+      }
+    }
+  }
+  ["pvBoard","pvIron","pvTilt"].forEach(id=>{ const el=document.getElementById(id); el.addEventListener("input",drawPv); el.addEventListener("click",e=>e.stopPropagation()); });
+  pv.addEventListener("wheel",e=>{ e.preventDefault(); zoom=Math.min(3,Math.max(.6,zoom*(e.deltaY<0?1.1:.9))); drawPv(); },{passive:false});
+  let drag=null;
+  pv.addEventListener("mousedown",e=>{drag=e.clientX; e.stopPropagation();});
+  window.addEventListener("mousemove",e=>{ if(drag!==null){ yawDeg+= (e.clientX-drag)*.5; drag=e.clientX; drawPv(); } });
+  window.addEventListener("mouseup",()=>drag=null);
+
+  runChecks(); drawEd(); drawPal(); drawCounts(); drawPv();
+})();
+</script>
+
+</body></html>

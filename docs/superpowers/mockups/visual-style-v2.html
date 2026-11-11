@@ -1,0 +1,171 @@
+<h2>視覺風格：加上斜視角</h2>
+<p class="subtitle">拖動下方滑桿調整「傾斜」和「旋轉」。正式版會有「平面編輯 ⇄ 立體預覽」切換：編輯時用正上方（好點選），預覽時可以斜看。</p>
+
+<style>
+  .ctl { display:flex; gap:24px; flex-wrap:wrap; align-items:center; margin: 6px 0 18px; font-size:14px; }
+  .ctl label { display:flex; align-items:center; gap:8px; }
+  .ctl input[type=range] { width:180px; }
+  .vs-wrap { display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+  .vs-app { border-radius: 18px; padding: 14px; font-family: "PingFang TC", "Noto Sans TC", system-ui, sans-serif; }
+  .vs-bar { display:flex; align-items:center; gap:8px; margin-bottom:12px; font-size:13px; }
+  .vs-logo { font-weight:800; font-size:15px; margin-right:auto; }
+  .vs-pill { padding:4px 10px; border-radius:999px; font-size:12px; }
+  .vs-canvas-box { display:flex; justify-content:center; padding:10px; border-radius:14px; }
+  .A { background:#FBF6EE; color:#5B4636; box-shadow: 0 6px 20px rgba(120,90,60,.12); }
+  .A .vs-pill { background:#F1E6D6; } .A .vs-pill.on { background:#E8A87C; color:#fff; }
+  .A .vs-canvas-box { background:#F4EBDD; }
+  .B { background:#F7FAF8; color:#2F4A44; border:2px dashed #BFDCD3; }
+  .B .vs-pill { background:#fff; border:1.5px solid #BFDCD3; } .B .vs-pill.on { background:#7CC4B0; color:#fff; border-color:#7CC4B0; }
+  .B .vs-canvas-box { background:#EAF4F0; }
+  .C { background:#FFFDF8; color:#2B2B2B; border:2.5px solid #2B2B2B; box-shadow: 4px 4px 0 #2B2B2B; }
+  .C .vs-pill { background:#fff; border:2px solid #2B2B2B; } .C .vs-pill.on { background:#FFD45C; }
+  .C .vs-canvas-box { background:#FFF4D6; border:2px solid #2B2B2B; }
+</style>
+
+<div class="ctl">
+  <label>傾斜 <input id="tilt" type="range" min="0" max="65" value="42"> <span id="tiltv">42°</span></label>
+  <label>旋轉 <input id="yaw" type="range" min="-45" max="45" value="18"> <span id="yawv">18°</span></label>
+</div>
+
+<div class="cards vs-wrap">
+  <div class="card" data-choice="A" onclick="toggleSelect(this)">
+    <div class="card-image"><div class="vs-app A">
+      <div class="vs-bar"><span class="vs-logo">🫘 豆豆工作室</span><span class="vs-pill on">理想版</span><span class="vs-pill">有的色</span><span class="vs-pill">庫存</span></div>
+      <div class="vs-canvas-box"><canvas class="bead" data-style="glossy" data-board="#EFE3D0" data-edge="#D9C6A8" data-peg="#E2D2BA"></canvas></div>
+    </div></div>
+    <div class="card-body"><h3>A. 奶油手作</h3><p>光澤圓柱豆，高光＋側面明暗</p></div>
+  </div>
+  <div class="card" data-choice="B" onclick="toggleSelect(this)">
+    <div class="card-image"><div class="vs-app B">
+      <div class="vs-bar"><span class="vs-logo">🫘 豆豆工作室</span><span class="vs-pill on">理想版</span><span class="vs-pill">有的色</span><span class="vs-pill">庫存</span></div>
+      <div class="vs-canvas-box"><canvas class="bead" data-style="matte" data-board="#DDEEE8" data-edge="#BCD9CF" data-peg="#C8E1D8"></canvas></div>
+    </div></div>
+    <div class="card-body"><h3>B. 薄荷文具</h3><p>霧面圓柱豆，柔和不搶眼</p></div>
+  </div>
+  <div class="card" data-choice="C" onclick="toggleSelect(this)">
+    <div class="card-image"><div class="vs-app C">
+      <div class="vs-bar"><span class="vs-logo">🫘 豆豆工作室</span><span class="vs-pill on">理想版</span><span class="vs-pill">有的色</span><span class="vs-pill">庫存</span></div>
+      <div class="vs-canvas-box"><canvas class="bead" data-style="cartoon" data-board="#FFEBB8" data-edge="#E8CB7E" data-peg="#F0D592"></canvas></div>
+    </div></div>
+    <div class="card-body"><h3>C. 貼紙線稿</h3><p>描邊卡通圓柱豆</p></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const P = [
+    "....KKKKK....",
+    "..KKRRWRRKK..",
+    ".KRRRWWWRRRK.",
+    ".KRWRRWRRWRK.",
+    "KRWWWRRRWWWRK",
+    "KRRWRRRRRWRRK",
+    "KKKKKKKKKKKKK",
+    "...KSSSSSK...",
+    "...KSKSKSK...",
+    "...KSSSSSK...",
+    "...KSSSSSK...",
+    "....KKKKK....",
+    "............."
+  ];
+  const COL = { R:"#E8434F", W:"#FFF8F0", K:"#4A3B3B", S:"#F5D6B4" };
+  function shade(hex, amt){
+    const n = parseInt(hex.slice(1),16);
+    let r=(n>>16)&255,g=(n>>8)&255,b=n&255;
+    const f = amt<0?0:255, t=Math.abs(amt);
+    return `rgb(${Math.round(r+(f-r)*t)},${Math.round(g+(f-g)*t)},${Math.round(b+(f-b)*t)})`;
+  }
+  const SIZE = 290, N = P.length, BR = 0.47, BH = 0.85, HOLE = 0.17;
+
+  function draw(cv, tiltDeg, yawDeg){
+    const style = cv.dataset.style, dpr = window.devicePixelRatio||1;
+    cv.width = SIZE*dpr; cv.height = SIZE*dpr; cv.style.width = SIZE+"px"; cv.style.height = SIZE+"px";
+    const x = cv.getContext("2d"); x.setTransform(dpr,0,0,dpr,0,0);
+    const t = tiltDeg*Math.PI/180, y = yawDeg*Math.PI/180, ct=Math.cos(t), st=Math.sin(t), cy=Math.cos(y), sy=Math.sin(y);
+    const raw = (u,v,z) => { const rx=u*cy - v*sy, ry=u*sy + v*cy; return [rx, ry*ct - z*st, ry]; };
+    // fit
+    const half = N/2 + 0.3, pts = [];
+    for(const [u,v] of [[-half,-half],[half,-half],[half,half],[-half,half]]) { pts.push(raw(u,v,-0.35)); pts.push(raw(u,v,BH)); }
+    const minX=Math.min(...pts.map(p=>p[0])), maxX=Math.max(...pts.map(p=>p[0])), minY=Math.min(...pts.map(p=>p[1])), maxY=Math.max(...pts.map(p=>p[1]));
+    const s = Math.min((SIZE-8)/(maxX-minX), (SIZE-8)/(maxY-minY));
+    const ox = SIZE/2 - (minX+maxX)/2*s, oy = SIZE/2 - (minY+maxY)/2*s;
+    const P2 = (u,v,z) => { const r = raw(u,v,z); return [ox + r[0]*s, oy + r[1]*s, r[2]]; };
+
+    // board thickness + top
+    const corners = [[-half,-half],[half,-half],[half,half],[-half,half]];
+    x.fillStyle = cv.dataset.edge; x.beginPath();
+    corners.forEach(([u,v],i)=>{ const p=P2(u,v,-0.35); i?x.lineTo(p[0],p[1]):x.moveTo(p[0],p[1]); }); x.closePath(); x.fill();
+    // side faces
+    for(let i=0;i<4;i++){
+      const a=corners[i], b=corners[(i+1)%4];
+      const p1=P2(a[0],a[1],0), p2=P2(b[0],b[1],0), p3=P2(b[0],b[1],-0.35), p4=P2(a[0],a[1],-0.35);
+      x.beginPath(); x.moveTo(p1[0],p1[1]); x.lineTo(p2[0],p2[1]); x.lineTo(p3[0],p3[1]); x.lineTo(p4[0],p4[1]); x.closePath(); x.fill();
+    }
+    x.fillStyle = cv.dataset.board; x.beginPath();
+    corners.forEach(([u,v],i)=>{ const p=P2(u,v,0); i?x.lineTo(p[0],p[1]):x.moveTo(p[0],p[1]); }); x.closePath(); x.fill();
+
+    // items sorted by depth
+    const items = [];
+    for(let j=0;j<N;j++) for(let i=0;i<N;i++){
+      const u = i - N/2 + 0.5, v = j - N/2 + 0.5;
+      items.push({u,v,ch:P[j][i],d:raw(u,v,0)[2]});
+    }
+    items.sort((a,b)=>a.d-b.d);
+    const ex = BR*s, ey = BR*s*ct, hx = HOLE*s, hy = HOLE*s*ct;
+
+    for(const it of items){
+      const [bx,by] = P2(it.u,it.v,0);
+      if(it.ch==="."){
+        const [tx,ty] = P2(it.u,it.v,0.28);
+        x.fillStyle = cv.dataset.peg;
+        x.beginPath(); x.ellipse(bx,by,0.09*s,0.09*s*ct,0,0,Math.PI*2); x.fill();
+        x.fillRect(bx-0.09*s, ty, 0.18*s, by-ty);
+        x.fillStyle = shade(cv.dataset.peg,.25); x.beginPath(); x.ellipse(tx,ty,0.09*s,0.09*s*ct,0,0,Math.PI*2); x.fill();
+        continue;
+      }
+      const base = COL[it.ch];
+      const [tx,ty] = P2(it.u,it.v,BH);
+      // drop shadow
+      x.fillStyle="rgba(60,40,20,.18)"; x.beginPath(); x.ellipse(bx+ex*.15,by+ey*.25,ex*1.05,ey*1.05,0,0,Math.PI*2); x.fill();
+      // side wall
+      if(st > 0.01){
+        const g = x.createLinearGradient(bx-ex,0,bx+ex,0);
+        if(style==="glossy"){ g.addColorStop(0,shade(base,-.45)); g.addColorStop(.35,shade(base,-.05)); g.addColorStop(.6,shade(base,.12)); g.addColorStop(1,shade(base,-.5)); }
+        else if(style==="matte"){ g.addColorStop(0,shade(base,-.3)); g.addColorStop(.45,shade(base,-.08)); g.addColorStop(1,shade(base,-.35)); }
+        else { g.addColorStop(0,shade(base,-.25)); g.addColorStop(1,shade(base,-.25)); }
+        x.fillStyle = g; x.beginPath();
+        x.moveTo(bx-ex,ty); x.lineTo(bx-ex,by); x.ellipse(bx,by,ex,ey,0,Math.PI,0,true); x.lineTo(bx+ex,ty); x.closePath(); x.fill();
+        if(style==="cartoon"){ x.strokeStyle="#2B2B2B"; x.lineWidth=1.3; x.stroke(); }
+      }
+      // top face
+      let tg;
+      if(style==="glossy"){ tg = x.createRadialGradient(tx-ex*.35,ty-ey*.45,ex*.08,tx,ty,ex); tg.addColorStop(0,shade(base,.45)); tg.addColorStop(.6,base); tg.addColorStop(1,shade(base,-.15)); }
+      else if(style==="matte"){ tg = x.createRadialGradient(tx-ex*.2,ty-ey*.2,ex*.2,tx,ty,ex); tg.addColorStop(0,shade(base,.12)); tg.addColorStop(1,shade(base,-.08)); }
+      else tg = base;
+      x.fillStyle = tg; x.beginPath(); x.ellipse(tx,ty,ex,ey,0,0,Math.PI*2); x.fill();
+      if(style==="cartoon"){ x.strokeStyle="#2B2B2B"; x.lineWidth=1.3; x.stroke(); }
+      // hole: far inner wall lit, near part dark
+      x.save(); x.beginPath(); x.ellipse(tx,ty,hx,hy,0,0,Math.PI*2); x.clip();
+      x.fillStyle = shade(base,-.2); x.fillRect(tx-hx,ty-hy,hx*2,hy*2);
+      x.fillStyle = shade(base,-.6); x.beginPath(); x.ellipse(tx,ty+ (BH*st*s)*0.35,hx,hy,0,0,Math.PI*2); x.fill();
+      x.restore();
+      if(style==="cartoon"){ x.strokeStyle="#2B2B2B"; x.lineWidth=1.1; x.beginPath(); x.ellipse(tx,ty,hx,hy,0,0,Math.PI*2); x.stroke(); }
+      // highlight
+      if(style!=="matte"){
+        x.strokeStyle = style==="glossy" ? "rgba(255,255,255,.75)" : "rgba(255,255,255,.95)";
+        x.lineWidth = style==="glossy" ? 1.5 : 1.8; x.lineCap="round";
+        x.beginPath(); x.ellipse(tx,ty,ex*.7,ey*.7,0,Math.PI*1.1,Math.PI*1.42); x.stroke();
+      }
+    }
+  }
+  const tilt = document.getElementById("tilt"), yaw = document.getElementById("yaw");
+  function redraw(){
+    document.getElementById("tiltv").textContent = tilt.value+"°";
+    document.getElementById("yawv").textContent = yaw.value+"°";
+    document.querySelectorAll("canvas.bead").forEach(cv=>draw(cv, +tilt.value, +yaw.value));
+  }
+  tilt.addEventListener("input", redraw); yaw.addEventListener("input", redraw);
+  [tilt,yaw].forEach(el=>el.addEventListener("click", e=>e.stopPropagation()));
+  redraw();
+})();
+</script>
