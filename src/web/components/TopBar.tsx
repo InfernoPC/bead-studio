@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import type { Design } from '../../core/model';
+import type { ClientDesign as Design } from '../../core/model';
 import { callTool, toolError, type DesignSummary, type HistoryDepth } from '../lib/api';
 import { MOD } from '../lib/keyboard';
 import type { ConnState } from '../lib/serverState';

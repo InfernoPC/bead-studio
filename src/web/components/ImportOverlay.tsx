@@ -2,7 +2,7 @@
 // PNG 直接上傳（伺服器判斷有沒有可還原的作品資料：有就還原成新作品，沒有就轉換到目前作品）；
 // 其他圖片先問轉換選項。形狀鎖定時選項卡改成說明與「解鎖形狀」。
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getVariant, type Design } from '../../core/model';
+import { getVariant, type ClientDesign as Design } from '../../core/model';
 import { callTool, toolError, uploadImport } from '../lib/api';
 import { Dialog } from './Dialog';
 

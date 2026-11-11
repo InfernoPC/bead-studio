@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 import websocket from '@fastify/websocket';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { OpError } from '../core/errors';
-import type { Design } from '../core/model';
+import { toClientDesign, type Design } from '../core/model';
 import { buildMcpServer, type Vision } from './mcp';
 import type { PathOpts } from './paths';
 import { importImageBuffer } from './importBuffer';
@@ -52,7 +52,8 @@ export async function buildApp(store: DesignStore, opts: AppOpts = {}) {
 
   const sockets = new Set<import('ws').WebSocket>();
   const send = (msg: unknown) => { const s = JSON.stringify(msg); for (const ws of sockets) if (ws.readyState === 1) ws.send(s); };
-  const onChange = (design: Design) => send({ type: 'design', design, history: store.historyDepth(design.id) });
+  // 快照只送清單資訊（toClientDesign）：完整的快照內容很大，瀏覽器也用不到，還原時用 id 呼叫 restore_snapshot
+  const onChange = (design: Design) => send({ type: 'design', design: toClientDesign(design), history: store.historyDepth(design.id) });
   const onMeta = () => send({ type: 'meta' });
   store.on('change', onChange);
   store.on('meta', onMeta);
@@ -104,11 +105,11 @@ export async function buildApp(store: DesignStore, opts: AppOpts = {}) {
   );
 
   app.get('/api/state', async () => {
-    let current = null;
+    let current: Design | null = null;
     try { current = store.get(); } catch { /* 尚未開啟作品 */ }
     const port = (app.server.address() as any)?.port;
     return {
-      designs: store.list(), current, history: current ? store.historyDepth(current.id) : null, palette: store.paletteColors, inventory: store.inventory,
+      designs: store.list(), current: current && toClientDesign(current), history: current ? store.historyDepth(current.id) : null, palette: store.paletteColors, inventory: store.inventory,
       checks: store.checks, mcpUrl: `http://localhost:${port}/mcp`,
     };
   });

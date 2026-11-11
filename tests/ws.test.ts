@@ -25,6 +25,7 @@ function open(origin?: string) {
   ws.on('message', (m) => msgs.push(JSON.parse(String(m))));
   return { ws, msgs };
 }
+const post = (n: string, b: object) => fetch(`${base}/api/tools/${n}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) }).then((r) => r.json());
 const until = async (f: () => boolean) => { for (let i = 0; i < 100 && !f(); i++) await new Promise((r) => setTimeout(r, 20)); };
 
 describe('/ws', () => {
@@ -63,5 +64,24 @@ describe('/ws', () => {
     const { ws } = open('http://evil.example');
     const code = await new Promise((r) => { ws.on('unexpected-response', (_q, res) => r(res.statusCode)); ws.on('error', () => {}); });
     expect(code).toBe(403);
+  });
+  it('design messages and /api/state list snapshots without their contents; restore still works by id', async () => {
+    const { ws, msgs } = open();
+    await until(() => msgs.length > 0);
+    await post('new_design', { name: 'snap', widthMm: 50, heightMm: 50, bead: 5, margin: 1 });
+    await post('apply_ops', { ops: [{ op: 'rect', x: 1, y: 1, w: 1, h: 1, color: 'A1' }] });
+    await post('snapshot', { name: '一顆豆' });
+    await until(() => msgs.at(-1)?.design?.snapshots?.length === 1);
+    const listed = msgs.at(-1).design.snapshots[0];
+    expect(Object.keys(listed).sort()).toEqual(['at', 'id', 'name']);
+    expect(listed.name).toBe('一顆豆');
+    const state = await (await fetch(`${base}/api/state`)).json();
+    expect(state.current.snapshots).toEqual([listed]);
+
+    await post('apply_ops', { ops: [{ op: 'clear', region: { x: 0, y: 0, w: 10, h: 10 } }] });
+    expect((await post('restore_snapshot', { snapshotId: listed.id })).ok).toBe(true);
+    await until(() => msgs.at(-1)?.design?.variants?.[0].cells.some(Boolean));
+    expect(msgs.at(-1).design.variants[0].cells.filter(Boolean)).toEqual(['A1']);
+    ws.close();
   });
 });

@@ -11,6 +11,14 @@ export type DesignCore = {
 };
 export type Snapshot = { id: string; name: string; at: string; design: DesignCore };
 export type Design = DesignCore & { snapshots: Snapshot[] };
+/** 快照的清單資訊（不含快照的內容）；還原時用 id */
+export type SnapshotInfo = Omit<Snapshot, 'design'>;
+/** 送給瀏覽器的作品（WebSocket 推送與 /api/state）：快照只帶清單資訊，不必每次修改都傳一份份完整的舊作品 */
+export type ClientDesign = DesignCore & { snapshots: SnapshotInfo[] };
+
+export function toClientDesign(d: Design): ClientDesign {
+  return { ...d, snapshots: d.snapshots.map(({ id, name, at }) => ({ id, name, at })) };
+}
 
 export function gridSize(b: Board) {
   return {
@@ -29,14 +37,14 @@ export function createDesign(a: { id: string; name: string; board: Board }): Des
   };
 }
 
-export const cloneDesign = (d: Design): Design => structuredClone(d);
+export const cloneDesign = <D extends DesignCore>(d: D): D => structuredClone(d);
 
 export function coreOf(d: Design): DesignCore {
   const { snapshots: _s, ...core } = d;
   return structuredClone(core);
 }
 
-export function getVariant(d: Design, id?: string): Variant {
+export function getVariant(d: DesignCore, id?: string): Variant {
   const want = id ?? d.activeVariant;
   const v = d.variants.find((x) => x.id === want);
   if (!v) throw new OpError('no_variant', `找不到配色版本 ${want}`);
@@ -51,7 +59,7 @@ export function countCodes(cells: (string | null)[]): Record<string, number> {
 
 export const maskFromCells = (cells: (string | null)[]) => cells.map((c) => (c === null ? '0' : '1')).join('');
 
-export function bbox(d: Design, cells: (string | null)[]) {
+export function bbox(d: DesignCore, cells: (string | null)[]) {
   let x0 = Infinity, y0 = Infinity, x1 = -1, y1 = -1;
   cells.forEach((c, i) => {
     if (c === null) return;

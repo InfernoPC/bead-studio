@@ -1,7 +1,7 @@
 // 配色版本分頁：每個版本一個分頁（名稱＋色彩範圍小字），點選切換；
 // 右鍵或目前分頁旁的「⋯」改色彩範圍；「＋」開小表單建立新版本
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type RefObject } from 'react';
-import type { Design } from '../../core/model';
+import type { ClientDesign as Design } from '../../core/model';
 import type { PaletteMode } from '../../core/palette';
 import type { ToolResult } from '../lib/api';
 import { Popover, usePopover } from './Popover';

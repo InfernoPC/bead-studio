@@ -1,6 +1,6 @@
 // 匯出：選「目前版本／全部版本」與「成品圖／施工圖／3D 預覽」，下載伺服器渲染的 PNG（含可還原的作品資料）
 import { useState } from 'react';
-import { getVariant, type Design } from '../../core/model';
+import { getVariant, type ClientDesign as Design } from '../../core/model';
 import { exportUrl, type View } from '../lib/api';
 import { Popover, usePopover } from './Popover';
 

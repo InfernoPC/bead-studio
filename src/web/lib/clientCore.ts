@@ -1,6 +1,6 @@
 import { applyOps, type OpCtx } from '../../core/ops';
 import { Palette } from '../../core/palette';
-import type { Design } from '../../core/model';
+import type { ClientDesign as Design } from '../../core/model';
 import type { StateSnapshot } from './api';
 import type { Pending } from './editorState';
 

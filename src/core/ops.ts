@@ -1,7 +1,7 @@
 import { matchCodes } from './allocate';
 import { OpError, type Pt } from './errors';
 import { gradient, outline, shade } from './effects';
-import { cloneDesign, countCodes, getVariant, maskFromCells, type Design, type Variant } from './model';
+import { cloneDesign, countCodes, getVariant, maskFromCells, type DesignCore, type Variant } from './model';
 import { MAX_OPS, OpSchema, type Op } from './opSchema';
 import { allowedCodes, stockCapacity, type Inventory, type Palette } from './palette';
 import { ellipsePts, floodRegion, linePts, polygonPts, rectPts, regionPts, type Clip } from './raster';
@@ -106,7 +106,7 @@ function assertStock(v: Variant, inv: Inventory): void {
   }
 }
 
-export function syncOtherVariants(d: Design, from: Variant, ctx: OpCtx): void {
+export function syncOtherVariants(d: DesignCore, from: Variant, ctx: OpCtx): void {
   for (const o of d.variants) {
     if (o === from) continue;
     const added: number[] = [];
@@ -131,7 +131,7 @@ export function syncOtherVariants(d: Design, from: Variant, ctx: OpCtx): void {
   }
 }
 
-export function applyOps(design: Design, rawOps: unknown[], ctx: OpCtx, variantId?: string): { design: Design; summary: Summary } {
+export function applyOps<D extends DesignCore>(design: D, rawOps: unknown[], ctx: OpCtx, variantId?: string): { design: D; summary: Summary } {
   const ops = parseOps(rawOps);
   const next = cloneDesign(design);
   const v = getVariant(next, variantId);

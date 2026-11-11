@@ -1,5 +1,5 @@
 // 編輯區的純繪製：core drawFlat 加上編輯用的疊加層（留邊外紅框、鏡像、單色／檢查器高亮）
-import { getVariant, type Design } from '../../core/model';
+import { getVariant, type ClientDesign as Design } from '../../core/model';
 import type { Palette } from '../../core/palette';
 import { drawFlat, flatLayout } from '../../core/render/draw';
 import type { CellFrame } from './bounce';

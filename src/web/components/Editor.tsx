@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type PointerEvent as ReactPointerEvent } from 'react';
-import { getVariant, type Design } from '../../core/model';
+import { getVariant, type ClientDesign as Design } from '../../core/model';
 import type { Op } from '../../core/opSchema';
 import { drawBeadFlat, flatLayout } from '../../core/render/draw';
 import { drawBoard, readTokens } from '../lib/boardRender';

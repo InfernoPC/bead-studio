@@ -1,4 +1,4 @@
-import type { Design } from '../../core/model';
+import type { ClientDesign as Design } from '../../core/model';
 import type { HistoryDepth, StateSnapshot } from './api';
 
 export type ConnState = 'connecting' | 'online' | 'offline';

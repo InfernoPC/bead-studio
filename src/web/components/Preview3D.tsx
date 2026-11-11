@@ -1,7 +1,7 @@
 // 3D 實體預覽：整個介面唯一用到 3D 的地方（編輯區維持平面）。以 core drawIso 畫霧面圓柱豆，
 // 拖曳旋轉、滾輪縮放；「放大」用 <dialog> 全螢幕顯示同一組畫布與控制項，兩邊共用同一份檢視狀態。
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type KeyboardEvent, type PointerEvent, type SetStateAction } from 'react';
-import { bbox, getVariant, type Design } from '../../core/model';
+import { bbox, getVariant, type ClientDesign as Design } from '../../core/model';
 import { Palette, type PaletteColor } from '../../core/palette';
 import { drawIso, type IsoOpts } from '../../core/render/draw';
 import { readTokens } from '../lib/boardRender';

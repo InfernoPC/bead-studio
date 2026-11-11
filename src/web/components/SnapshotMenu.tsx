@@ -1,6 +1,6 @@
 // 快照：上方「儲存快照」（名稱預設「快照 HH:mm」），下方列出已存的快照，點選後確認再還原
 import { useRef, useState, type RefObject } from 'react';
-import type { Design, Snapshot } from '../../core/model';
+import type { ClientDesign as Design, SnapshotInfo as Snapshot } from '../../core/model';
 import type { ToolResult } from '../lib/api';
 import { Dialog } from './Dialog';
 import { Popover, usePopover } from './Popover';

@@ -1,4 +1,4 @@
-import type { Design } from '../../core/model';
+import type { ClientDesign as Design } from '../../core/model';
 import type { PaletteColor, Inventory } from '../../core/palette';
 import type { ChecksConfig } from '../../core/checks';
 

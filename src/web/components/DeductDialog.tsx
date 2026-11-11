@@ -1,7 +1,7 @@
 // 「做完了，扣庫存」的確認對話框：列出每色會扣多少，確認後呼叫 deduct_inventory（和 AI 用的是同一個工具）。
 // 庫存不在作品的復原紀錄裡，所以先講清楚會扣什麼、之後去哪裡調整
 import { useState } from 'react';
-import { getVariant, type Design } from '../../core/model';
+import { getVariant, type ClientDesign as Design } from '../../core/model';
 import { planDeduction, type Inventory, type PaletteColor } from '../../core/palette';
 import { callTool, toolError } from '../lib/api';
 import { BeadDot, useBeadInk } from './BeadTray';

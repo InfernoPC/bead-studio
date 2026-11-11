@@ -1,7 +1,7 @@
 // 檢查器：即時跑 core 的 runChecks（含預覽中的筆畫）；點問題把格子標在畫布上，再點或按 Esc 取消
 import { memo, useDeferredValue, useEffect, useMemo, useState, type Dispatch, type ReactNode } from 'react';
 import { runChecks, type ChecksConfig, type Issue } from '../../core/checks';
-import type { Design } from '../../core/model';
+import type { ClientDesign as Design } from '../../core/model';
 import { Palette, type Inventory, type PaletteColor } from '../../core/palette';
 import type { EditorAction } from '../lib/editorState';
 import { makeCtx } from '../lib/clientCore';

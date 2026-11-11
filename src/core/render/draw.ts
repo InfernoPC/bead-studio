@@ -1,4 +1,4 @@
-import type { Design, Variant } from '../model';
+import type { DesignCore, Variant } from '../model';
 import type { Palette } from '../palette';
 
 type C2D = CanvasRenderingContext2D;
@@ -46,12 +46,12 @@ export type FlatOpts = {
   ui?: Partial<Pick<typeof UI, 'bg' | 'board' | 'peg' | 'ruler' | 'guide'>> & { rim?: string };
 };
 
-export function flatLayout(d: Design, o: FlatOpts) {
+export function flatLayout(d: DesignCore, o: FlatOpts) {
   const pad = o.rulers ? 18 : 6;
   return { pad, w: d.cols * o.cell + pad * 2, h: d.rows * o.cell + pad * 2 };
 }
 
-export function drawFlat(ctx: C2D, d: Design, v: Variant, p: Palette, o: FlatOpts): void {
+export function drawFlat(ctx: C2D, d: DesignCore, v: Variant, p: Palette, o: FlatOpts): void {
   const { pad, w, h } = flatLayout(d, o);
   const cs = o.cell;
   const ui = { ...UI, ...o.ui };
@@ -104,7 +104,7 @@ export type IsoOpts = {
   ui?: Partial<Pick<typeof UI, 'bg' | 'board' | 'boardEdge' | 'peg'>> & { rim?: string };
 };
 
-export function drawIso(ctx: C2D, d: Design, v: Variant, p: Palette, o: IsoOpts): void {
+export function drawIso(ctx: C2D, d: DesignCore, v: Variant, p: Palette, o: IsoOpts): void {
   const S = o.size, tilt = ((o.tilt ?? 40) * Math.PI) / 180, yaw = ((o.yaw ?? 20) * Math.PI) / 180;
   const ct = Math.cos(tilt), st = Math.sin(tilt), cy = Math.cos(yaw), sy = Math.sin(yaw);
   const ironed = !!o.ironed, showBoard = o.board !== false;

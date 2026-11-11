@@ -1,4 +1,4 @@
-import type { Design } from '../../core/model';
+import type { ClientDesign as Design } from '../../core/model';
 
 export type Tool = 'pen' | 'eraser' | 'fill' | 'eyedropper' | 'line' | 'replace' | 'hole';
 export type Pending = { baseVersion: number; design: Design };

@@ -1,7 +1,7 @@
 // 面板設定（點狀態列的尺寸文字開啟）：寬高 mm、豆子尺寸、留邊；欄位與「建立新作品」共用。
 // 會裁掉豆子時先問；形狀鎖定時說明原因並提供「解鎖形狀」。
 import { useEffect, useId, useRef, useState } from 'react';
-import { gridSize, type BeadSize, type Board, type Design } from '../../core/model';
+import { gridSize, type BeadSize, type Board, type ClientDesign as Design } from '../../core/model';
 import { MAX_BOARD_MM } from '../../core/opSchema';
 import { callTool, toolError } from '../lib/api';
 import { Dialog } from './Dialog';
