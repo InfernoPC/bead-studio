@@ -34,23 +34,22 @@ type Design = DesignCore & { snapshots: Snapshot[] };
 - `designSchema` 跟著改：`cells.length === cols*rows`，不再檢查 mask／版本。
 - PNG metadata 寫入新的格式（換一個 metadata 鍵或加 `format: 2`），讀到舊格式就當一般圖片。
 
-## 色彩限制（兩個面向）
+## 兩個面向：只靠 AI 記憶
 
-共用一個型別：`Limit = { ownedOnly?: boolean; withinStock?: boolean }`。`withinStock` 隱含 `ownedOnly`。
+「只用有的顏色」「只用有的數量」**不做成任何工具參數、不存在作品裡**。AI 設計前問使用者，並在對話中記住答案，自己挑色、自己檢查：
 
-| 工具 | 改動 |
-|---|---|
-| `get_palette` | `mode` 改成 `ownedOnly?: boolean`（預設 false 列全部）。每行照舊顯示庫存數 |
-| `apply_ops` | 移除 `variant`。新增選填 `limit: Limit`：`ownedOnly` 時用到沒有的顏色就整批失敗（`color_not_allowed`，附最接近的可用色）；`withinStock` 時套用後任一色超過庫存就整批失敗（`stock_exceeded`）。不帶 `limit` 時任何色表顏色都能用 |
-| 新 op `recolor` | `{ op: "recolor", withinStock?: boolean, region? }`：把（範圍內）豆子換成最接近的「有的顏色」；`withinStock` 時照庫存數量分配（沿用現有的 allocate）。跟其他 op 一樣是一次可復原的修改 |
-| `import_image` | 移除 `variant`；新增 `ownedOnly`、`withinStock`（保留 `colors`／`crop`／`exclude`／`removeBg`／`dither`）。`colors` 與 `ownedOnly` 同時給時取交集 |
+- 挑色：`get_palette` 照舊列出每個色號的庫存數（`mode` 參數移除，永遠列全部），AI 只挑有庫存的。
+- 匯入圖片：用現有的 `import_image colors`，填使用者有的色號。
+- 數量：看 `apply_ops` 回傳的檢查結果（缺料提醒），超量就用 `replace_color` 等 op 換掉。
+- 使用者改主意：AI 用一般的 op（`replace_color` 等）改色，跟其他修改一樣可復原。
 
-透明豆照舊：自動對色（`recolor`、`import_image`）永遠不選透明豆。
+工具不再依「色彩範圍」擋顏色：任何色表上的顏色都能用，缺料由檢查器提醒。
 
 ## 移除的工具與參數
 
 - 工具：`create_variant`、`set_variant_mode`、`select_variant`、`set_shape_lock`。
-- 參數：所有工具的 `variant`；`render_preview` 的 `variant: "all"`；`deduct_inventory` 的 `variant`。
+- 參數：所有工具的 `variant`；`render_preview` 的 `variant: "all"`；`deduct_inventory` 的 `variant`；`get_palette` 的 `mode`。
+- 色彩範圍檢查：`apply_ops` 的 `color_not_allowed`／`stock_exceeded`、`import_image` 依模式限色與照庫存分配（`allocate` 若無其他用途一併移除）。
 - `get_design` 標頭去掉 `locked=` 與 `variant=`。
 - `ops.ts` 的 `syncOtherVariants`、形狀鎖檢查；`variants.ts` 整個檔案。
 - HTTP：`/api/designs/:id/export.png` 與 `/api/import` 的 `variant` query。
@@ -65,9 +64,9 @@ type Design = DesignCore & { snapshots: Snapshot[] };
 
 ## Skill（bead-design）
 
-- 「開始前」新增：設計前問使用者兩件事——①只用有的顏色嗎？②只用有的數量嗎？依回答在 `get_palette`、`apply_ops.limit`、`import_image` 帶參數；使用者之後改主意就用一次 `recolor`。
+- 「開始前」新增：設計前問使用者兩件事——①只用有的顏色嗎？②只用有的數量嗎？記住答案：挑色只挑有庫存的、`import_image` 的 `colors` 填有的色號、看檢查結果的缺料提醒調整用量；使用者改主意就用 `replace_color` 等 op 改色。
 - 刪除「配色版本」步驟（`set_shape_lock`、`create_variant`）。
-- `knowledge/color.md`：「有的色／庫存版重新對色」那條改寫成 `recolor` 之後的檢查方式。
+- `knowledge/color.md`：「有的色／庫存版重新對色」那條改寫成「換成有的顏色時，主色差太多就改用同色系手動換」。
 - `deduct_inventory` 說明去掉 variant。
 - README 更新工具與網頁說明。
 
@@ -75,10 +74,8 @@ type Design = DesignCore & { snapshots: Snapshot[] };
 
 - 刪除／改寫版本相關測試（`variants.test.ts`、`ops`／`mcp`／`model`／`designSchema`／`board`／`render`／`textCodec` 中的版本案例、e2e topbar 的版本分頁）。
 - 新增：
-  - `recolor`：換成有的顏色；`withinStock` 不超過庫存；透明豆不被選上；可復原。
-  - `apply_ops.limit`：`ownedOnly` 擋下沒有的顏色並給建議；`withinStock` 擋下超量；不帶 limit 可用任何顏色。
-  - `get_palette ownedOnly`。
-  - `import_image` 的 `ownedOnly`／`withinStock`。
+  - 不帶任何限制時，`apply_ops`／`import_image` 可以用沒有庫存的顏色，檢查結果列出缺料。
+  - `get_palette` 列出全部色號與庫存數。
   - 載入舊格式檔案：略過且檔案內容不變。
   - e2e：沒有版本分頁、匯出單一設計、扣庫存流程照常。
 
