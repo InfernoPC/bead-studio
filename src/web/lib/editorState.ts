@@ -1,6 +1,6 @@
 import type { ClientDesign as Design } from '../../core/model';
 
-export type Tool = 'pen' | 'eraser' | 'fill' | 'eyedropper' | 'line' | 'replace' | 'hole';
+export type Tool = 'pen' | 'eraser' | 'fill' | 'eyedropper' | 'line' | 'ellipse' | 'replace' | 'hole';
 /**
  * 樂觀預覽。ops／variant 讓伺服器在中途有新版本（例如 AI 修改）時能把這一筆重新套上去，
  * 不用先丟掉預覽；commitVersion 是送出後伺服器回報的版本，伺服器追上它才換回伺服器的設計。

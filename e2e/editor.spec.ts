@@ -169,3 +169,47 @@ test('Space + drag over the stage pans', async ({ page }) => {
   expect(after.offsetX - before.offsetX).toBeCloseTo(60);
   expect(after.offsetY - before.offsetY).toBeCloseTo(30);
 });
+
+test('the circle tool draws an outline, a perfect circle with Shift and a filled one with Option/Alt', async ({ page }) => {
+  await page.goto('/');
+  await tool(page, 'new_design', { name: '畫圓測試', widthMm: 80, heightMm: 80, bead: 2.6, margin: 2 });
+  await expect(page.getByTestId('design-name')).toHaveText('畫圓測試');
+  await pickColorWithEyedropper(page, 'A5');
+  await page.keyboard.press('o');
+  await expect(page.getByRole('button', { name: '圓形' })).toHaveAttribute('aria-pressed', 'true');
+
+  const drag = async (from: [number, number], to: [number, number], mods: ('Shift' | 'Alt')[] = []) => {
+    const a = await cellCenter(page, ...from), b = await cellCenter(page, ...to);
+    for (const m of mods) await page.keyboard.down(m);
+    await page.mouse.move(a.x, a.y);
+    await page.mouse.down();
+    await page.mouse.move(b.x, b.y, { steps: 4 });
+    await page.mouse.up();
+    for (const m of mods) await page.keyboard.up(m);
+  };
+  const at = (cells: (string | null)[], x: number, y: number) => cells[y * 30 + x];
+
+  // 外框：中心是空的、四邊中點有豆
+  await drag([4, 4], [12, 10]);
+  await expect.poll(async () => (await current(page)).total).toBeGreaterThan(0);
+  let s = await current(page);
+  expect(at(s.cells, 8, 7)).toBeNull();
+  expect(at(s.cells, 8, 4)).toBe('A5');
+  expect(at(s.cells, 4, 7)).toBe('A5');
+  expect(at(s.cells, 13, 7)).toBeNull(); // 外框寬 9 格（4–12）
+  const outline = s.total;
+
+  // 正圓（Shift）往左上拖：以較長的一邊為邊長
+  await drag([24, 24], [20, 16], ['Shift']);
+  await expect.poll(async () => (await current(page)).total).toBeGreaterThan(outline);
+  s = await current(page);
+  expect(at(s.cells, 16, 20)).toBe('A5'); // 邊長 9（16–24）的左邊中點
+  expect(at(s.cells, 20, 16)).toBe('A5'); // 上邊中點
+
+  // 實心（Alt）：中心也有豆
+  const before = s.total;
+  await drag([4, 16], [10, 22], ['Alt']);
+  await expect.poll(async () => (await current(page)).total).toBeGreaterThan(before);
+  s = await current(page);
+  expect(at(s.cells, 7, 19)).toBe('A5');
+});

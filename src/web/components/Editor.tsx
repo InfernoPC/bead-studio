@@ -9,7 +9,7 @@ import { BounceTracker } from '../lib/bounce';
 import { displayDesign, makeCtx, pendingSettled, previewOps } from '../lib/clientCore';
 import type { EditorAction, EditorState } from '../lib/editorState';
 import { isTyping } from '../lib/keyboard';
-import { interpolate, strokeToPaste, type Cell } from '../lib/stroke';
+import { ellipseFromDrag, interpolate, strokeToPaste, type Cell } from '../lib/stroke';
 import { cellAt, zoomAround, type View } from '../lib/viewport';
 
 type Props = {
@@ -30,7 +30,8 @@ type Gesture =
   | { kind: 'pan'; x: number; y: number; ox: number; oy: number }
   // variant：這一筆開始時的配色版本；拖曳途中切換版本（例如 AI 切換）也不會改畫到別的版本
   | { kind: 'paint'; base: Design; variant: string; color: string | null; cells: Cell[]; seen: Set<number>; last: Cell | null }
-  | { kind: 'line'; base: Design; variant: string; color: string; from: Cell; to: Cell };
+  // 直線與圓形：拖曳兩點決定形狀；circle（Shift）＝正圓、filled（Option／Alt）＝實心
+  | { kind: 'line'; shape: 'line' | 'ellipse'; base: Design; variant: string; color: string; from: Cell; to: Cell; circle: boolean; filled: boolean };
 
 /** 平面編輯區：繪製、縮放平移、繪圖工具。所有修改都透過 callTool 送到伺服器。 */
 export function Editor({ snapshot, design, editor, dispatch, editable, onNotice }: Props) {
@@ -244,7 +245,7 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
   };
 
   const previewGesture = (g: Extract<Gesture, { kind: 'paint' | 'line' }>) => {
-    if (g.kind === 'line') { preview(g.base, [lineOp(g.from, g.to, g.color)], g.variant); return; }
+    if (g.kind === 'line') { preview(g.base, [shapeOp(g)], g.variant); return; }
     const op = strokeToPaste(g.cells, g.color);
     if (op) preview(g.base, [op], g.variant);
     else dispatch({ type: 'clearPreview' });
@@ -292,11 +293,15 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
         addToStroke(g, c);
         return;
       }
-      case 'line': {
+      case 'line': case 'ellipse': {
         if (!ed.color) { needColor(); return; }
-        gesture.current = { kind: 'line', base, variant: base.activeVariant, color: ed.color, from: c, to: c };
+        const g: Gesture = {
+          kind: 'line', shape: ed.tool, base, variant: base.activeVariant, color: ed.color, from: c, to: c,
+          circle: e.shiftKey, filled: e.altKey,
+        };
+        gesture.current = g;
         e.currentTarget.setPointerCapture(e.pointerId);
-        preview(base, [lineOp(c, c, ed.color)]);
+        preview(base, [shapeOp(g)]);
         return;
       }
       case 'fill': {
@@ -345,8 +350,8 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
     if (!c) return;
     if (g?.kind === 'paint') addToStroke(g, c);
     else if (g?.kind === 'line') {
-      const moved = c[0] !== g.to[0] || c[1] !== g.to[1];
-      g.to = c;
+      const moved = c[0] !== g.to[0] || c[1] !== g.to[1] || g.circle !== e.shiftKey || g.filled !== e.altKey;
+      g.to = c; g.circle = e.shiftKey; g.filled = e.altKey;
       if (rebase(g) || moved) previewGesture(g);
     }
   };
@@ -362,7 +367,7 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
       if (op) void send(g.base, [op], g.variant);
       else dispatch({ type: 'clearPreview' });
     } else {
-      void send(g.base, [lineOp(g.from, g.to, g.color)], g.variant);
+      void send(g.base, [shapeOp(g)], g.variant);
     }
   };
 
@@ -391,9 +396,21 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
     return () => el.removeEventListener('wheel', onWheel);
   }, [dispatch, setView]);
 
+  /* ---------- 鍵盤：畫圓時按下／放開 Shift、Option 立刻更新形狀（游標不動也一樣） ---------- */
+  const onShapeModifier = useRef<(e: KeyboardEvent) => void>(() => {});
+  onShapeModifier.current = (e) => {
+    const g = gesture.current;
+    if (g?.kind !== 'line' || g.shape !== 'ellipse') return;
+    if (g.circle === e.shiftKey && g.filled === e.altKey) return;
+    g.circle = e.shiftKey; g.filled = e.altKey;
+    rebase(g);
+    previewGesture(g);
+  };
+
   /* ---------- 鍵盤：空白鍵平移、復原／重做 ---------- */
   useEffect(() => {
     const onDown = (e: KeyboardEvent) => {
+      if (e.key === 'Shift' || e.key === 'Alt') { onShapeModifier.current(e); return; }
       if (e.isComposing || isTyping(e.target)) return;
       if (e.code === 'Space') {
         // 只在游標位於編輯區、且焦點不在按鈕／連結等控制項上時當作平移，否則讓空白鍵照常啟動按鈕
@@ -414,7 +431,10 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
       void callTool(undo ? 'undo' : 'redo', { designId: live.current.design.id })
         .then((res) => onNotice(res.ok || toolError(res.text).code === 'no_history' ? null : res.text));
     };
-    const onUp = (e: KeyboardEvent) => { if (e.code === 'Space') setSpace(false); };
+    const onUp = (e: KeyboardEvent) => {
+      if (e.key === 'Shift' || e.key === 'Alt') onShapeModifier.current(e);
+      if (e.code === 'Space') setSpace(false);
+    };
     const onBlur = () => setSpace(false);
     window.addEventListener('keydown', onDown);
     window.addEventListener('keyup', onUp);
@@ -446,6 +466,8 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
 }
 
 const lineOp = (a: Cell, b: Cell, color: string): Op => ({ op: 'line', x1: a[0], y1: a[1], x2: b[0], y2: b[1], color });
+const shapeOp = (g: Extract<Gesture, { kind: 'line' }>): Op =>
+  g.shape === 'ellipse' ? ellipseFromDrag(g.from, g.to, g.color, { circle: g.circle, filled: g.filled }) : lineOp(g.from, g.to, g.color);
 
 /** 形狀鎖定時：畫筆不能畫在空格、橡皮擦不能擦有豆的格子 */
 function isForbidden(d: Design, tool: EditorState['tool'], x: number, y: number): boolean {
