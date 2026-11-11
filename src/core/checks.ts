@@ -3,8 +3,9 @@ import type { Pt } from './errors';
 import { countCodes, getVariant, type DesignCore } from './model';
 import type { Inventory, Palette } from './palette';
 
-export type ChecksConfig = { thinChainMin: number; holeMinNeighbors: number; minAdjacentDeltaE: number };
-export const DEFAULT_CHECKS: ChecksConfig = { thinChainMin: 4, holeMinNeighbors: 3, minAdjacentDeltaE: 10 };
+/** holeMaxInset：掛孔與外側之間最多隔幾顆豆（掛環要穿得過去） */
+export type ChecksConfig = { thinChainMin: number; holeMinNeighbors: number; holeMaxInset: number; minAdjacentDeltaE: number };
+export const DEFAULT_CHECKS: ChecksConfig = { thinChainMin: 4, holeMinNeighbors: 4, holeMaxInset: 1, minAdjacentDeltaE: 10 };
 export type IssueId = 'margin' | 'floating' | 'thin_chain' | 'hole' | 'stock' | 'low_contrast';
 export type Issue = { id: IssueId; message: string; cells: Pt[] };
 
@@ -58,7 +59,13 @@ export function runChecks(
     if (!occ(mk.x, mk.y)) {
       issues.push({ id: 'hole', message: `掛孔 (${mk.x},${mk.y}) 位置沒有豆子`, cells: [[mk.x, mk.y]] });
     } else if (deg(mk.x, mk.y) < ctx.config.holeMinNeighbors) {
-      issues.push({ id: 'hole', message: `掛孔 (${mk.x},${mk.y}) 只有 ${deg(mk.x, mk.y)} 個相鄰豆，太靠邊，建議外圍補透明豆`, cells: [[mk.x, mk.y]] });
+      issues.push({ id: 'hole', message: `掛孔 (${mk.x},${mk.y}) 只有 ${deg(mk.x, mk.y)} 個相鄰豆，太靠邊；建議往內移一格，讓外圍有豆子包住（或在外側補透明豆）`, cells: [[mk.x, mk.y]] });
+    } else {
+      // 往上下左右走到第一個空格：中間隔的豆子數就是掛孔離邊緣多深
+      const inset = Math.min(...N4.map(([dx, dy]) => { let k = 1; while (occ(mk.x + dx * k, mk.y + dy * k)) k++; return k - 1; }));
+      if (inset > ctx.config.holeMaxInset) {
+        issues.push({ id: 'hole', message: `掛孔 (${mk.x},${mk.y}) 離邊緣隔了 ${inset} 顆豆，掛環穿不過去；建議放在邊緣往內一格`, cells: [[mk.x, mk.y]] });
+      }
     }
   }
 

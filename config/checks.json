@@ -1,1 +1,1 @@
-{ "thinChainMin": 4, "holeMinNeighbors": 3, "minAdjacentDeltaE": 10 }
+{ "thinChainMin": 4, "holeMinNeighbors": 4, "holeMaxInset": 1, "minAdjacentDeltaE": 10 }

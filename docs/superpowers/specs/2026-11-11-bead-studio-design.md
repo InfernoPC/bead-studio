@@ -156,7 +156,7 @@ type Variant = {
 | 超出留邊 | 豆子位於外圈 margin 格內 | 使用 board.margin |
 | 孤立浮豆 | 四鄰皆空 | — |
 | 細線易斷 | 只靠單一相鄰豆連接的長鏈 | `thinChainMin`: 4 |
-| 掛孔補強 | 掛孔四鄰中有豆的數量不足 | `holeMinNeighbors`: 3 |
+| 掛孔補強 | 掛孔四鄰中有豆的數量不足（太靠邊），或離外側太深（掛環穿不過） | `holeMinNeighbors`: 4、`holeMaxInset`: 1 |
 | 庫存不足 | 用量 > 庫存 | — |
 | 對比過低 | 相鄰不同色的 ΔE00 過小 | `minAdjacentDeltaE`: 10 |
 

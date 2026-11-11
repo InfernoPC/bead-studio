@@ -19,7 +19,7 @@ description: 用 Bead Studio MCP 設計拼豆圖案時使用：設計流程、�
 4. **描邊**：照 `knowledge/outline.md`，通常 `outline {target:"shape", color:"<深色色號>", side:"outer"}`。
 5. **明暗**：照 `knowledge/shading.md`，用 `shade` 或 `gradient`，顏色挑選見 `knowledge/color.md`。
 6. **細節**：眼睛、腮紅等可用 `recipes/` 的現成圖塊。
-7. **檢查**：看 `apply_ops` 回傳的檢查結果或 `run_checks`，依 `knowledge/structure.md` 修正（掛孔補透明豆、浮豆、細線）。
+7. **檢查**：看 `apply_ops` 回傳的檢查結果或 `run_checks`，依 `knowledge/structure.md` 修正（掛孔放在邊緣往內一格、浮豆、細線）。
 8. **自我審查**：`render_preview`（能看圖時）或 `describe_design`（不能看圖時）。至少審一輪：對稱、比例、對比、可讀性。
 9. **配色版本**：形狀確定後 `set_shape_lock {locked:true}`，再用 `create_variant` 產生「有的色」（owned）和「庫存版」（stock）版本，各自 `render_preview` 檢查，必要時只用換色類 op 微調。
 

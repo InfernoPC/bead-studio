@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { reduceServer, type ClientState } from '../../src/web/lib/serverState';
 import { smallDesign } from '../fixtures';
 
-const snap = (current: any) => ({ designs: [{ id: current.id, name: current.name, version: current.version, current: true }], current, palette: [], inventory: {}, checks: { thinChainMin: 4, holeMinNeighbors: 3, minAdjacentDeltaE: 10 }, mcpUrl: 'x' });
+const snap = (current: any) => ({ designs: [{ id: current.id, name: current.name, version: current.version, current: true }], current, palette: [], inventory: {}, checks: { thinChainMin: 4, holeMinNeighbors: 4, holeMaxInset: 1, minAdjacentDeltaE: 10 }, mcpUrl: 'x' });
 
 describe('reduceServer', () => {
   const d1 = { ...smallDesign(), version: 3 };

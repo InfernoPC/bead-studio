@@ -30,6 +30,14 @@ describe('checks', () => {
     const issue = runChecks(d, undefined, ctx).find((i) => i.id === 'hole')!;
     expect(issue.message).toMatch(/透明豆/);
   });
+  it('accepts a hole one bead in from the edge, and flags edge or too-deep holes', () => {
+    const block: [number, number, string][] = [];
+    for (let y = 2; y <= 7; y++) for (let x = 2; x <= 7; x++) block.push([x, y, 'A1']);
+    const at = (x: number, y: number) => runChecks({ ...paint(smallDesign(), block), markers: [{ type: 'hole' as const, x, y }] }, undefined, ctx).find((i) => i.id === 'hole');
+    expect(at(4, 3)).toBeUndefined(); // 往內一格
+    expect(at(4, 2)!.message).toMatch(/往內移一格/); // 在最外圈
+    expect(at(4, 4)!.message).toMatch(/隔了 2 顆/); // 太深
+  });
   it('flags a hole marker without a bead', () => {
     const d = { ...smallDesign(), markers: [{ type: 'hole' as const, x: 4, y: 4 }] };
     expect(runChecks(d, undefined, ctx).find((i) => i.id === 'hole')!.message).toMatch(/沒有豆子/);
