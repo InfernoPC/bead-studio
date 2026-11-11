@@ -182,6 +182,7 @@ export const Preview3D = memo(function Preview3D({ design, palette: colors }: Pr
   const [view, setView] = useState<View>(INITIAL);
   const [expanded, setExpanded] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const expandRef = useRef<HTMLButtonElement>(null);
   // 底色與板子跟著亮暗主題（重讀 tokens）；豆子顏色永遠來自色票
   const theme = useTheme();
   const ui = useMemo<IsoOpts['ui']>(() => {
@@ -194,7 +195,8 @@ export const Preview3D = memo(function Preview3D({ design, palette: colors }: Pr
     const dlg = dialogRef.current;
     if (!dlg) return;
     if (expanded && !dlg.open) dlg.showModal();
-    if (!expanded && dlg.open) dlg.close();
+    // 關閉後焦點回到「放大」：不依賴瀏覽器還原（Safari／macOS Firefox 點按鈕不會讓按鈕取得焦點，會掉到 body）
+    if (!expanded && dlg.open) { dlg.close(); expandRef.current?.focus(); }
   }, [expanded]);
 
   return (
@@ -203,12 +205,12 @@ export const Preview3D = memo(function Preview3D({ design, palette: colors }: Pr
       <Controls view={view} setView={setView} idPrefix="preview" />
       <div className="preview-foot">
         <p className="preview-size num">{size}</p>
-        <button type="button" className="btn-quiet" onClick={() => setExpanded(true)}>放大</button>
+        <button ref={expandRef} type="button" className="btn-quiet" onClick={() => setExpanded(true)}>放大</button>
       </div>
 
       <dialog
         ref={dialogRef} className="preview-dialog" aria-labelledby="preview-dialog-title"
-        onClose={() => setExpanded(false)}
+        onClose={() => { setExpanded(false); expandRef.current?.focus(); }}
         onKeyDown={(e) => {
           // 對話框是 modal：按鍵不往外傳，避免工具列快捷鍵、檢查器的 Esc 取消標示等也跟著反應
           e.stopPropagation();

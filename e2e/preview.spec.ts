@@ -68,9 +68,12 @@ test('dragging rotates; 放大 opens a fullscreen dialog and Esc closes only the
   await margin.click();
   await expect(margin).toHaveAttribute('aria-pressed', 'true');
 
-  await previewOf(page).getByRole('button', { name: '放大' }).click();
+  const expand = previewOf(page).getByRole('button', { name: '放大' });
+  await expand.click();
   const dialog = page.getByRole('dialog', { name: '實體預覽' });
   await expect(dialog).toBeVisible();
+  const focusInDialog = () => dialog.evaluate((d) => d.contains(document.activeElement));
+  await expect.poll(focusInDialog).toBe(true);
   const large = dialog.getByTestId('preview-canvas-large');
   await expect.poll(async () => (await large.boundingBox())?.width ?? 0).toBeGreaterThan(400);
   await expect.poll(() => canvasData(page, 'preview-canvas-large')).not.toMatch(/^data:,$/);
@@ -79,7 +82,21 @@ test('dragging rotates; 放大 opens a fullscreen dialog and Esc closes only the
 
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
+  await expect(expand).toBeFocused(); // 焦點回到「放大」
   await expect(margin).toHaveAttribute('aria-pressed', 'true');
   await page.keyboard.press('Escape'); // 對話框關了之後，Esc 照常取消標示
   await expect(margin).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('closing the enlarged preview with 關閉預覽 returns focus to 放大', async ({ page }) => {
+  await openDesign(page, '關閉焦點測試');
+  const expand = previewOf(page).getByRole('button', { name: '放大' });
+  await expand.click();
+  const dialog = page.getByRole('dialog', { name: '實體預覽' });
+  await expect(dialog).toBeVisible();
+  await expect.poll(() => dialog.evaluate((d) => d.contains(document.activeElement))).toBe(true);
+  await dialog.click({ position: { x: 4, y: 4 } }); // 先點對話框空白處，讓焦點不在任何按鈕上
+  await dialog.getByRole('button', { name: '關閉預覽' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(expand).toBeFocused();
 });
