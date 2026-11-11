@@ -4,7 +4,7 @@ AI 協作的拼豆設計工具。
 
 ## 啟動
 
-需要 Node.js ≥ 22。
+需要 Node.js ≥ 24。
 
 ```bash
 pnpm install

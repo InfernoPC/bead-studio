@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "scripts": {
     "dev": "concurrently -k -n server,web \"BEADS_ALLOWED_HOSTS=localhost:5173 tsx watch src/server/index.ts\" \"vite\"",
