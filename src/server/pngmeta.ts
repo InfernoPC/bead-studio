@@ -4,6 +4,7 @@ import encode from 'png-chunks-encode';
 import type { Design } from '../core/model';
 
 const KEY = 'bead-studio';
+const MAX_META_BYTES = 16 * 1024 * 1024;
 
 const keywordOf = (data: Uint8Array) => Buffer.from(data.subarray(0, data.indexOf(0))).toString('latin1');
 
@@ -18,7 +19,7 @@ export function embedDesign(png: Buffer, d: Design): Buffer {
 }
 
 function isDesign(x: any): x is Design {
-  return x && typeof x.cols === 'number' && typeof x.rows === 'number' && typeof x.mask === 'string'
+  return x && Number.isInteger(x.cols) && x.cols > 0 && Number.isInteger(x.rows) && x.rows > 0 && typeof x.mask === 'string'
     && x.mask.length === x.cols * x.rows && Array.isArray(x.variants) && x.variants.length > 0
     && x.variants.every((v: any) => Array.isArray(v.cells) && v.cells.length === x.cols * x.rows);
 }
@@ -28,7 +29,7 @@ export function extractDesign(png: Buffer): Design | null {
     for (const c of extract(png)) {
       if (c.name !== 'zTXt' || keywordOf(c.data) !== KEY) continue;
       const start = c.data.indexOf(0) + 2;
-      const d = JSON.parse(zlib.inflateSync(c.data.subarray(start)).toString('utf8'));
+      const d = JSON.parse(zlib.inflateSync(c.data.subarray(start), { maxOutputLength: MAX_META_BYTES }).toString('utf8'));
       return isDesign(d) ? d : null;
     }
   } catch {

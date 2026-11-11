@@ -35,4 +35,11 @@ describe('png metadata', () => {
     chunks.splice(chunks.length - 1, 0, { name: 'zTXt', data: body });
     expect(extractDesign(Buffer.from(encode(chunks)))).toBeNull();
   });
+  it('returns null for a zTXt that inflates past the size cap', async () => {
+    const chunks = extract(await renderPng(smallDesign(), palette, {}));
+    const padded = JSON.stringify(smallDesign()) + ' '.repeat(17 * 1024 * 1024);
+    const body = Buffer.concat([Buffer.from('bead-studio', 'latin1'), Buffer.from([0, 0]), zlib.deflateSync(Buffer.from(padded))]);
+    chunks.splice(chunks.length - 1, 0, { name: 'zTXt', data: body });
+    expect(extractDesign(Buffer.from(encode(chunks)))).toBeNull();
+  });
 });
