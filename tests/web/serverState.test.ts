@@ -27,4 +27,12 @@ describe('reduceServer', () => {
     expect(s.conn).toBe('offline');
     expect(s.snapshot).toBe(base.snapshot);
   });
+  it('keeps the newer current when a stale snapshot of the same design arrives', () => {
+    const newer: ClientState = { conn: 'online', snapshot: snap({ ...d1, version: 5, name: 'newer' }) as any };
+    const s = reduceServer(newer, { type: 'snapshot', snapshot: snap({ ...d1, version: 4, name: 'stale' }) as any });
+    expect(s.snapshot!.current!.name).toBe('newer');
+    expect(s.snapshot!.designs.find((x) => x.id === d1.id)).toMatchObject({ version: 5, name: 'newer' });
+    const fresh = reduceServer(newer, { type: 'snapshot', snapshot: snap({ ...d1, version: 6, name: 'fresh' }) as any });
+    expect(fresh.snapshot!.current!.name).toBe('fresh');
+  });
 });
