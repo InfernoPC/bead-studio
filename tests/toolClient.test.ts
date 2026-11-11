@@ -25,6 +25,10 @@ describe('in-process tool client', () => {
     const b = await tc.call('apply_ops', { ops: [{ op: 'rect', x: 0, y: 0, w: 1, h: 1, color: 'NOPE' }] });
     expect(b.ok).toBe(false);
     expect(b.text).toMatch(/unknown_color/);
+    expect(b.version).toBeUndefined();
+    const c = await tc.call('apply_ops', { ops: [{ op: 'rect', x: 0, y: 0, w: 1, h: 1, color: 'A1' }] });
+    expect(c.version).toBe(store.get(store.currentId!).version); // 回報套用後的版本
+    expect(c.text).not.toMatch(/version/);
     const img = await tc.call('render_preview', { view: 'flat' });
     expect(img.images[0].mimeType).toBe('image/png');
     await tc.close();

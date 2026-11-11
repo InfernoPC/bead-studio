@@ -6,7 +6,7 @@ import { drawBoard, readTokens } from '../lib/boardRender';
 import { useTheme } from '../lib/theme';
 import { callTool, toolError, type StateSnapshot } from '../lib/api';
 import { BounceTracker } from '../lib/bounce';
-import { displayDesign, makeCtx, previewOps } from '../lib/clientCore';
+import { displayDesign, makeCtx, pendingSettled, previewOps } from '../lib/clientCore';
 import type { EditorAction, EditorState } from '../lib/editorState';
 import { isTyping } from '../lib/keyboard';
 import { interpolate, strokeToPaste, type Cell } from '../lib/stroke';
@@ -57,7 +57,7 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
   const theme = useTheme();
   const tokens = useMemo(() => readTokens(), [theme]);
   const opCtx = useMemo(() => makeCtx(snapshot), [snapshot.palette, snapshot.inventory]);
-  const shown = displayDesign(design, editor.pending) ?? design;
+  const shown = useMemo(() => displayDesign(design, editor.pending, opCtx) ?? design, [design, editor.pending, opCtx]);
 
   // 事件處理器裡要讀最新值
   const live = useRef({ view, size, editor, design, shown, editable });
@@ -97,7 +97,7 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
   /* ---------- 送出完成後，伺服器版本追上就清掉預覽 ---------- */
   useEffect(() => {
     const p = editor.pending;
-    if (p && (p.design.id !== design.id || design.version > p.baseVersion)) dispatch({ type: 'clearPreview' });
+    if (p && pendingSettled(design, p)) dispatch({ type: 'clearPreview' });
   }, [design, editor.pending, dispatch]);
 
   /* ---------- 拖曳中伺服器有新版本（例如 AI 修改）：把這一筆移到新版本上重新預覽 ---------- */
@@ -199,14 +199,19 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
     const res = await callTool('apply_ops', { designId: base.id, variant, ops });
     // 送出有結果了：還沒等到回聲的自己的格子，過一陣子就不再當成自己的
     if (!gesture.current) bounce.settle(performance.now());
-    if (res.ok) onNotice(null);
+    if (res.ok) {
+      onNotice(null);
+      // 記下伺服器套用後的版本：伺服器追上它之前，中途來的別人的版本都會重新套上這一筆。
+      // 已經開始下一筆時，預覽屬於下一筆，不動它
+      if (res.version !== undefined && !gesture.current) dispatch({ type: 'commitPreview', version: res.version });
+    }
     else { dispatch({ type: 'clearPreview' }); onNotice(res.text); }
   }, [dispatch, onNotice]);
 
   const preview = useCallback((base: Design, ops: Op[], variant = base.activeVariant) => {
     const next = previewOps(base, ops, opCtx, variant);
     if (next instanceof Error) dispatch({ type: 'clearPreview' });
-    else dispatch({ type: 'preview', pending: { baseVersion: base.version, design: next } });
+    else dispatch({ type: 'preview', pending: { baseVersion: base.version, design: next, ops, variant } });
   }, [dispatch, opCtx]);
 
   const needColor = useCallback(() => {

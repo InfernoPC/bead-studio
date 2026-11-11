@@ -10,7 +10,8 @@ export type StateSnapshot = {
   designs: DesignSummary[]; current: Design | null; history: HistoryDepth | null; palette: PaletteColor[];
   inventory: Inventory; checks: ChecksConfig; mcpUrl: string;
 };
-export type ToolResult = { ok: boolean; text: string; images: { data: string; mimeType: string }[] };
+/** version：修改設計的工具（apply_ops）回報套用後的版本 */
+export type ToolResult = { ok: boolean; text: string; images: { data: string; mimeType: string }[]; version?: number };
 
 function httpMessage(status: number, body: unknown): string {
   if (status === 413) return '檔案太大，上限是 20MB。';
