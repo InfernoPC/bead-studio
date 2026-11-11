@@ -1,5 +1,5 @@
 // 分格豆盒色票：半透明的分格收納盒，每格依庫存裝 0–3 顆霧面豆，格底標色號與剩餘顆數
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type KeyboardEvent } from 'react';
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type KeyboardEvent, type MouseEvent } from 'react';
 import type { Inventory, PaletteColor } from '../../core/palette';
 import { drawBeadFlat } from '../../core/render/draw';
 import { readTokens } from '../lib/boardRender';
@@ -75,6 +75,7 @@ export function BeadDot({ hex, size, transparent = false, ink }: { hex: string; 
 
 const PILE_W = 40, PILE_H = 31, PILE_R = 8.6;
 
+/** 格子裡的豆子堆（level ≥ 1 才有 canvas；空格由 Compartment 放同尺寸的空位） */
 function Pile({ slot, ink }: { slot: TraySlot; ink: BeadInk }) {
   const ref = useCanvas(PILE_W, PILE_H, (ctx) => {
     PILES[slot.level].forEach((p, k) => {
@@ -92,6 +93,29 @@ const FILTERS: { value: TrayFilter; label: string }[] = [
   { value: 'all', label: '全部 MARD' }, { value: 'owned', label: '我有的' }, { value: 'stock', label: '有庫存' },
 ];
 
+/** 一格：上方豆子堆（沒有的顏色是空的，滑過或聚焦時浮出一顆淡淡的示意豆），
+ *  下方像收納盒貼紙的色條＋色號＋顆數。色條顏色是色票資料（每一格都有，沒有的顏色也看得到長相） */
+const Compartment = memo(function Compartment({ slot: s, selected, tabbable, ink }: { slot: TraySlot; selected: boolean; tabbable: boolean; ink: BeadInk }) {
+  const swatch = { '--swatch': s.hex } as CSSProperties;
+  return (
+    <div
+      role="option" data-code={s.code} aria-selected={selected} aria-label={slotLabel(s)}
+      title={`${s.code} ${s.name}`} tabIndex={tabbable ? 0 : -1}
+      className={`tray-slot${s.owned ? '' : ' is-missing'}`} style={swatch}
+    >
+      {s.transparent && <span className="tray-tag">透明</span>}
+      {s.level > 0 ? <Pile slot={s} ink={ink} /> : (
+        <span className="tray-pile-empty" style={{ width: PILE_W, height: PILE_H }} aria-hidden="true">
+          {!s.owned && <span className={`tray-ghost${s.transparent ? ' is-clear' : ''}`} />}
+        </span>
+      )}
+      <span className={`tray-swatch${s.transparent ? ' is-clear' : ''}`} data-testid="tray-swatch" aria-hidden="true" />
+      <span className="tray-code">{s.code}</span>
+      <span className="tray-count num">{s.owned ? s.count : '\u00a0'}</span>
+    </div>
+  );
+});
+
 function slotLabel(s: TraySlot): string {
   const kind = s.transparent ? '，透明' : '';
   const stock = !s.owned ? '沒有這個顏色' : `庫存 ${s.count} 顆`;
@@ -103,7 +127,7 @@ type Props = {
   color: string | null; recent: string[]; dispatch: Dispatch<EditorAction>;
 };
 
-export function BeadTray({ palette, inventory, color, recent, dispatch }: Props) {
+export const BeadTray = memo(function BeadTray({ palette, inventory, color, recent, dispatch }: Props) {
   const ink = useBeadInk();
   const [filter, setFilter] = useState<TrayFilter>('all');
   const [query, setQuery] = useState('');
@@ -119,7 +143,18 @@ export function BeadTray({ palette, inventory, color, recent, dispatch }: Props)
     setCursor(code);
     gridRef.current?.querySelector<HTMLElement>(`[data-code="${CSS.escape(code)}"]`)?.focus();
   };
-  const onKey = (e: KeyboardEvent<HTMLDivElement>, i: number) => {
+  // 事件委派到整個盒子：格子本身不帶 handler，memo 後只有變動的格子會重畫
+  const slotIndex = (t: EventTarget) => {
+    const code = (t as HTMLElement).closest<HTMLElement>('[role="option"]')?.dataset.code;
+    return code ? slots.findIndex((s) => s.code === code) : -1;
+  };
+  const onClick = (e: MouseEvent<HTMLDivElement>) => {
+    const i = slotIndex(e.target);
+    if (i >= 0) { setCursor(slots[i].code); pick(slots[i].code); }
+  };
+  const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    const i = slotIndex(e.target);
+    if (i < 0) return;
     const step: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -COLS, ArrowDown: COLS };
     if (e.key in step) {
       const n = i + step[e.key];
@@ -189,19 +224,9 @@ export function BeadTray({ palette, inventory, color, recent, dispatch }: Props)
 
       <div className="tray">
         {slots.length > 0 ? (
-          <div ref={gridRef} className="tray-grid" role="listbox" aria-label="色票豆盒" data-testid="bead-tray">
-            {slots.map((s, i) => (
-              <div
-                key={s.code} role="option" data-code={s.code} aria-selected={s.code === color} aria-label={slotLabel(s)}
-                title={`${s.code} ${s.name}`} tabIndex={s.code === tabCode ? 0 : -1}
-                className={`tray-slot${s.owned ? '' : ' is-missing'}`}
-                onClick={() => { setCursor(s.code); pick(s.code); }} onKeyDown={(e) => onKey(e, i)}
-              >
-                {s.transparent && <span className="tray-tag">透明</span>}
-                <Pile slot={s} ink={ink} />
-                <span className="tray-code">{s.code}</span>
-                <span className="tray-count num">{s.owned ? s.count : ' '}</span>
-              </div>
+          <div ref={gridRef} className="tray-grid" role="listbox" aria-label="色票豆盒" data-testid="bead-tray" onClick={onClick} onKeyDown={onKey}>
+            {slots.map((s) => (
+              <Compartment key={s.code} slot={s} selected={s.code === color} tabbable={s.code === tabCode} ink={ink} />
             ))}
             {/* 最後一列補滿空格子，盒子才是完整的方格 */}
             {Array.from({ length: (COLS - (slots.length % COLS)) % COLS }, (_, k) => (
@@ -242,4 +267,4 @@ export function BeadTray({ palette, inventory, color, recent, dispatch }: Props)
       </div>
     </div>
   );
-}
+});

@@ -25,6 +25,16 @@ test('the tray filters by stock, finds colors by search, and picks on click', as
   const slots = tray.getByRole('option');
   await expect(slots).toHaveCount(222);
 
+  // 沒有的顏色也有色條（色票資料的顏色），只是沒有豆子
+  const e14 = tray.locator('[data-code="E14"]');
+  const swatch = e14.getByTestId('tray-swatch');
+  await expect(swatch).toBeVisible();
+  const bg = await swatch.evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(bg).not.toBe('rgba(0, 0, 0, 0)');
+  expect(bg).not.toBe('transparent');
+  await expect(e14.locator('canvas')).toHaveCount(0);
+  await expect(tray.locator('[data-code="A1"] canvas')).toHaveCount(1); // 有庫存的格子才畫豆子
+
   await page.getByRole('button', { name: '有庫存' }).click();
   await expect(slots).toHaveCount(2);
   await expect(slots.nth(0)).toHaveAttribute('data-code', 'A1');
@@ -56,6 +66,8 @@ test('arrow keys move between compartments and Enter picks', async ({ page }) =>
   await tray.locator('[data-code="A1"]').focus();
   await page.keyboard.press('ArrowRight');
   await expect(tray.locator('[data-code="A2"]')).toBeFocused();
+  // 鍵盤游標是虛線外框，和選取中的 --peach 框不同
+  expect(await tray.locator('[data-code="A2"]').evaluate((el) => getComputedStyle(el).outlineStyle)).toBe('dashed');
   await page.keyboard.press('ArrowDown');
   await expect(tray.locator('[data-code="A8"]')).toBeFocused();
   await page.keyboard.press('Enter');

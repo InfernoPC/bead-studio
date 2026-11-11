@@ -180,9 +180,28 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 }
 .tray-slot.is-filler { cursor: default; }
 .tray-slot:not(.is-filler):hover { background-color: color-mix(in srgb, var(--card) 95%, transparent); }
-.tray-slot:focus-visible { outline-offset: -3px; }
+.tray-slot:focus-visible { outline: 2px dashed var(--ink); outline-offset: -4px; } /* 鍵盤游標；--peach 只給選取中的顏色 */
 .tray-slot[aria-selected="true"] { box-shadow: inset 0 0 0 2px var(--peach); background-color: var(--card); }
-.tray-pile { margin-bottom: 1px; }
+.tray-pile, .tray-pile-empty { margin-bottom: 1px; }
+.tray-pile-empty { display: grid; place-items: center; }
+/* 沒有的顏色：滑過或聚焦時浮出一顆淡淡的示意豆（顏色來自色票資料 --swatch） */
+.tray-ghost {
+  width: 17px; height: 17px; border-radius: 50%; opacity: 0;
+  background: radial-gradient(circle, transparent 0 31%, var(--swatch) 34%);
+}
+.tray-ghost.is-clear { background: radial-gradient(circle, transparent 0 31%, var(--bead-clear) 34%); }
+.tray-slot:hover .tray-ghost, .tray-slot:focus-visible .tray-ghost { opacity: .55; }
+/* 色條：像收納盒上的貼紙，每一格都有；淡色也看得出邊 */
+.tray-swatch {
+  width: 26px; height: 6px; margin: 1px 0 3px; border-radius: 3px; background: var(--swatch);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 16%, transparent);
+}
+.tray-swatch.is-clear {
+  background: repeating-linear-gradient(135deg, var(--bead-clear) 0 3px, color-mix(in srgb, var(--bead-clear) 45%, transparent) 3px 6px);
+}
+/* 沒有的顏色：只把色條的填色調淡（外圈細線保留，白色系也看得出來）；暗色背景下淡化會變髒，所以暗色淡得少一點 */
+.tray-slot.is-missing .tray-swatch:not(.is-clear) { background: color-mix(in srgb, var(--swatch) var(--tray-missing-mix), transparent); }
+.tray-slot.is-missing .tray-swatch.is-clear { opacity: .6; }
 .tray-code { font-size: 11px; font-weight: 700; }
 .tray-count { font-size: 10px; color: var(--ink-soft); }
 .tray-slot.is-missing .tray-code { color: var(--ink-soft); font-weight: 400; opacity: .7; }
@@ -220,6 +239,10 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .usage-row:hover { background: color-mix(in srgb, var(--board) 40%, transparent); }
 .usage-row.is-current { box-shadow: inset 0 0 0 1.5px var(--peach); }
 .usage-row.is-highlight { background: color-mix(in srgb, var(--board) 70%, transparent); }
+.bead-unknown {
+  flex: none; width: 15px; height: 15px; margin: 1.5px; border-radius: 50%;
+  border: 1.5px dashed color-mix(in srgb, var(--ink) 35%, transparent);
+}
 .usage-code { flex: none; min-width: 2.6em; font-weight: 700; }
 .usage-name { flex: 1; min-width: 0; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .usage-count { flex: none; }
