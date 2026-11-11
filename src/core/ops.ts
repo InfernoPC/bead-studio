@@ -5,6 +5,7 @@ import { cloneDesign, countCodes, getVariant, maskFromCells, type Design, type V
 import { OpSchema, type Op } from './opSchema';
 import { allowedCodes, stockCapacity, type Inventory, type Palette } from './palette';
 import { ellipsePts, floodRegion, linePts, polygonPts, rectPts, regionPts } from './raster';
+import { unrle } from './textCodec';
 import { checkColor, getCell, inGrid, setCell, type Work } from './work';
 
 export type OpCtx = { palette: Palette; inventory: Inventory };
@@ -26,7 +27,9 @@ const paintPts = (w: Work, pts: Pt[], color: string) => pts.forEach(([x, y]) => 
 function runOp(w: Work, op: Op): void {
   switch (op.op) {
     case 'paste':
-      op.rows.forEach((row, j) => [...row].forEach((ch, i) => {
+      op.rows.map((row) => {
+        try { return unrle(row, 2048); } catch (e) { throw new OpError('bad_op', `第 ${w.opIndex} 條指令：${(e as Error).message}`, w.opIndex); }
+      }).forEach((row, j) => [...row].forEach((ch, i) => {
         if (ch === '.') return;
         if (ch === '_') return setCell(w, op.x + i, op.y + j, null);
         const code = op.legend[ch];

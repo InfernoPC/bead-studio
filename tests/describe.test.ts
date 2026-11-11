@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { describeDesign } from '../src/core/describe';
+import { Palette } from '../src/core/palette';
+import { createDesign } from '../src/core/model';
 import { smallDesign, paint, palette } from './fixtures';
 
 describe('describeDesign', () => {
@@ -19,5 +21,14 @@ describe('describeDesign', () => {
   });
   it('handles an empty design', () => {
     expect(describeDesign(smallDesign(), undefined, palette)).toMatch(/空白/);
+  });
+  it('skips the thumbnail instead of emitting ambiguous chars when there are too many colors', () => {
+    const hex = (i: number) => `#${(i * 2).toString(16).padStart(2, '0')}${(255 - i).toString(16).padStart(2, '0')}80`;
+    const big = new Palette(Array.from({ length: 120 }, (_, i) => ({ code: `X${i}`, name: `色${i}`, series: 'X', hex: hex(i) })));
+    const d = createDesign({ id: 't', name: 't', board: { widthMm: 100, heightMm: 100, bead: 5, margin: 0 } });
+    d.variants[0].cells = d.variants[0].cells.map((_, i) => (i < 120 ? `X${i}` : null));
+    const text = describeDesign(d, undefined, big);
+    expect(text).toMatch(/顏色太多/);
+    expect(text).not.toMatch(/縮圖（/);
   });
 });

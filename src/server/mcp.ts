@@ -8,7 +8,7 @@ import { describeDesign } from '../core/describe';
 import { OpError } from '../core/errors';
 import { imageToCells } from '../core/importImage';
 import { getVariant, maskFromCells } from '../core/model';
-import { OpSchema } from '../core/opSchema';
+import { OpSchema, RegionSchema } from '../core/opSchema';
 import { applyOps, syncOtherVariants, type Summary } from '../core/ops';
 import { allowedCodes, stockCapacity } from '../core/palette';
 import { encodeDesignText } from '../core/textCodec';
@@ -76,9 +76,9 @@ export function buildMcpServer(store: DesignStore, opts: { vision?: Vision } = {
   }));
 
   server.registerTool('get_design', {
-    description: '讀取設計（只回傳有豆子的範圍，每列 RLE：數字=重複次數，"."=空格）',
-    inputSchema: { designId, variant },
-  }, wrap(({ designId: id, variant: v }) => ok(encodeDesignText(store.get(id), v))));
+    description: '讀取設計（只回傳有豆子的範圍，每列 RLE：數字=重複次數，"."=空格）。region {x,y,w,h} 可只讀取某一區',
+    inputSchema: { designId, variant, region: RegionSchema.optional() },
+  }, wrap(({ designId: id, variant: v, region }) => ok(encodeDesignText(store.get(id), v, region))));
 
   server.registerTool('describe_design', {
     description: '用文字描述設計：對稱性、色塊分佈、外框、低對比、縮圖。不能看圖時用它檢查成果',
@@ -114,7 +114,7 @@ export function buildMcpServer(store: DesignStore, opts: { vision?: Vision } = {
     description: [
       '批次修改設計（原子性：任一條失敗則全部不套用；整批算一個 undo 步驟）。',
       '座標從 0 開始，x 往右、y 往下。超出畫布的部分會被裁切並回報。',
-      'op 種類：paste{x,y,rows,legend}（"."不動 "_"清除）、rect/ellipse{x,y,w,h,color,fill?}、line{x1,y1,x2,y2,color}、',
+      'op 種類：paste{x,y,rows,legend}（"."不動 "_"清除；rows 可用與 get_design 相同的 RLE，例如 "3a2.b"）、rect/ellipse{x,y,w,h,color,fill?}、line{x1,y1,x2,y2,color}、',
       'polygon{points,color,fill?}、fill{x,y,color}、replace_color{from,to,region?}、clear{region}、move{region,dx,dy}、',
       'mirror{region,axis:h|v}、rotate{region,turns:1|2|3}、outline{target:"shape"|色號,color,side:outer|inner,connect?:4|8}、',
       'gradient{target,colors[],direction:h|v|radial|角度,region?,dither?}、shade{target,light:tl|t|tr|l|r|bl|b|br,highlight,shadow,depth?}、',

@@ -63,6 +63,16 @@ describe('MCP tools', () => {
     expect(g.text).toMatch(/y0: 2a/);
   });
 
+  it('get_design can read just a region', async () => {
+    const { text } = await connect();
+    await text('new_design', NEW);
+    await text('apply_ops', { ops: [{ op: 'paste', x: 1, y: 1, rows: ['2a3.2b'], legend: { a: 'A1', b: 'H2' } }] });
+    const g = await text('get_design', { region: { x: 5, y: 0, w: 5, h: 5 } });
+    expect(g.text).toMatch(/bbox=\(6,1\)-\(7,1\)/);
+    expect(g.text).toMatch(/legend: a=H2\n/);
+    expect(g.text).toMatch(/y1: 2a/);
+  });
+
   it('apply_ops errors are reported, not thrown, and leave the design unchanged', async () => {
     const { text } = await connect();
     await text('new_design', NEW);

@@ -1,4 +1,5 @@
 import { deltaE00 } from './color';
+import { OpError } from './errors';
 import { bbox, getVariant, type Design } from './model';
 import type { Palette } from './palette';
 import { legendFor } from './textCodec';
@@ -85,7 +86,13 @@ export function describeDesign(d: Design, variantId: string | undefined, palette
   }
   out.push(`低對比相鄰：${low.size ? [...low].map(([k, dE]) => `${k} ΔE=${dE.toFixed(1)}`).join('、') : '無'}`);
 
-  const legend = legendFor(v.cells);
+  let legend: Map<string, string>;
+  try {
+    legend = legendFor(v.cells);
+  } catch (e) {
+    if (e instanceof OpError && e.code === 'too_many_colors') { out.push(`縮圖：顏色太多無法用文字表示（${e.message}）`); return out.join('\n'); }
+    throw e;
+  }
   out.push(`縮圖（2×2 合 1，${[...legend].map(([c, ch]) => `${ch}=${c}`).join(' ')}）：`);
   for (let y = b.y0; y <= b.y1; y += 2) {
     let line = '  ';

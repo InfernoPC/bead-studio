@@ -26,6 +26,15 @@ describe('applyOps', () => {
     expect(design.mask[1 * 10 + 1]).toBe('1');
   });
 
+  it('paste rows accept RLE like get_design output', () => {
+    const { design } = applyOps(smallDesign(), [
+      { op: 'paste', x: 0, y: 0, rows: ['3a2.b', '10_'], legend: { a: 'A1', b: 'H2' } },
+    ], ctxAll);
+    expect([0, 1, 2, 3, 4, 5].map((x) => cell(design, x, 0))).toEqual(['A1', 'A1', 'A1', null, null, 'H2']);
+    expect(() => applyOps(smallDesign(), [{ op: 'paste', x: 0, y: 0, rows: ['99999999a'], legend: { a: 'A1' } }], ctxAll))
+      .toThrow(/第 0 條指令：RLE 展開後超過/);
+  });
+
   it('draws rect / ellipse / line / polygon and summarizes counts', () => {
     const { design, summary } = applyOps(smallDesign(), [
       { op: 'rect', x: 0, y: 0, w: 3, h: 3, color: 'A1', fill: false },
