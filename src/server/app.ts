@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import websocket from '@fastify/websocket';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { OpError } from '../core/errors';
 import { buildMcpServer, type Vision } from './mcp';
@@ -26,6 +27,9 @@ export async function buildApp(store: DesignStore, opts: AppOpts = {}) {
   const tools = await createToolClient(store, opts);
   app.addHook('onClose', async () => { await tools.close(); });
 
+  // 必須先於 Host/Origin 檢查註冊：其 onRequest 標記 upgrade 請求，onResponse 才會在被拒（403）時銷毀 socket
+  await app.register(websocket);
+
   // 防 DNS rebinding／跨站請求：Host 與 Origin 都必須是本機或明確允許的主機
   const extra = (opts.allowedHosts ?? []).map((h) => h.trim().toLowerCase()).filter(Boolean);
   const allowedHosts = () => {
@@ -40,6 +44,19 @@ export async function buildApp(store: DesignStore, opts: AppOpts = {}) {
     if (!host || !allowed.has(host) || (origin !== undefined && !allowed.has(hostOf(origin) ?? ''))) {
       return reply.code(403).send({ error: '拒絕存取：不允許的 Host 或 Origin' });
     }
+  });
+
+  const sockets = new Set<import('ws').WebSocket>();
+  const send = (msg: unknown) => { const s = JSON.stringify(msg); for (const ws of sockets) if (ws.readyState === 1) ws.send(s); };
+  const onChange = (design: unknown) => send({ type: 'design', design });
+  const onMeta = () => send({ type: 'meta' });
+  store.on('change', onChange);
+  store.on('meta', onMeta);
+  app.addHook('onClose', async () => { store.off('change', onChange); store.off('meta', onMeta); for (const s of sockets) s.terminate(); });
+  app.get('/ws', { websocket: true }, (socket) => {
+    sockets.add(socket);
+    socket.send(JSON.stringify({ type: 'hello' }));
+    socket.on('close', () => sockets.delete(socket));
   });
 
   app.get('/health', async () => ({ ok: true }));
