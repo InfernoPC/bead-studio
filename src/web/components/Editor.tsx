@@ -3,6 +3,7 @@ import { getVariant, type Design } from '../../core/model';
 import type { Op } from '../../core/opSchema';
 import { drawBeadFlat, flatLayout } from '../../core/render/draw';
 import { drawBoard, readTokens } from '../lib/boardRender';
+import { useTheme } from '../lib/theme';
 import { callTool, type StateSnapshot } from '../lib/api';
 import { BounceTracker } from '../lib/bounce';
 import { displayDesign, makeCtx, previewOps } from '../lib/clientCore';
@@ -55,7 +56,9 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
   const [forbidden, setForbidden] = useState(false);
   const gesture = useRef<Gesture | null>(null);
   const hover = useRef<Cell | null>(null);
-  const tokens = useMemo(readTokens, []);
+  // 亮暗主題切換時重讀 tokens；drawNow 跟著變，下方的 effect 就會重畫
+  const theme = useTheme();
+  const tokens = useMemo(() => readTokens(), [theme]);
   const opCtx = useMemo(() => makeCtx(snapshot), [snapshot.palette, snapshot.inventory]);
   const shown = displayDesign(design, editor.pending) ?? design;
 

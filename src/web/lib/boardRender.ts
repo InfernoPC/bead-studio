@@ -1,18 +1,26 @@
 // 編輯區的純繪製：core drawFlat 加上編輯用的疊加層（留邊外紅框、鏡像、單色／檢查器高亮）
 import { getVariant, type Design } from '../../core/model';
 import type { Palette } from '../../core/palette';
-import { drawFlat, flatLayout, UI } from '../../core/render/draw';
+import { drawFlat, flatLayout } from '../../core/render/draw';
 import type { CellFrame } from './bounce';
 
 const FLAT = { pegs: true, rulers: true, guides: true, margin: true, markers: true } as const;
 const DIM = 0.35;
 
 /** 從 tokens.css 讀取畫布要用的顏色（元件不寫死色碼） */
-export type Tokens = { alert: string; ink: string; inkSoft: string; inspect: string };
+/** 亮暗主題切換後要重新讀取（見 lib/theme useTheme） */
+export type Tokens = {
+  alert: string; ink: string; inkSoft: string; inspect: string;
+  /** 板面配色，傳給 core drawFlat；豆子顏色不在這裡，永遠來自色票 */
+  ui: { bg: string; board: string; peg: string; ruler: string; guide: string };
+};
 export function readTokens(): Tokens {
   const s = getComputedStyle(document.documentElement);
   const v = (name: string) => s.getPropertyValue(name).trim();
-  return { alert: v('--alert'), ink: v('--ink'), inkSoft: v('--ink-soft'), inspect: v('--inspect') };
+  return {
+    alert: v('--alert'), ink: v('--ink'), inkSoft: v('--ink-soft'), inspect: v('--inspect'),
+    ui: { bg: v('--canvas-bg'), board: v('--canvas-board'), peg: v('--canvas-peg'), ruler: v('--canvas-ruler'), guide: v('--canvas-guide') },
+  };
 }
 
 /** 鏡像檢視用的左右翻轉副本（只用於繪製，資料不變） */
@@ -52,15 +60,15 @@ export function drawBoard(ctx: CanvasRenderingContext2D, design: Design, o: Boar
       const shownK = Math.floor(k / d.cols) * d.cols + dx(k % d.cols);
       cells[shownK] = f.code; scale.set(shownK, f.scale);
     }
-    drawFlat(ctx, d, { ...v, cells }, o.palette, { cell: cs, ...FLAT, beadScale: (k) => scale.get(k) ?? 1 });
+    drawFlat(ctx, d, { ...v, cells }, o.palette, { cell: cs, ...FLAT, ui: o.tokens.ui, beadScale: (k) => scale.get(k) ?? 1 });
   } else {
-    drawFlat(ctx, d, v, o.palette, { cell: cs, ...FLAT });
+    drawFlat(ctx, d, v, o.palette, { cell: cs, ...FLAT, ui: o.tokens.ui });
   }
 
   if (o.mirror) {
     // 上方尺規跟著翻轉：第 1 欄在右邊
-    ctx.fillStyle = UI.bg; ctx.fillRect(pad, 0, d.cols * cs, pad);
-    ctx.fillStyle = UI.ruler; ctx.font = `${Math.max(8, Math.round(Math.min(cs, 18) * 0.6))}px sans-serif`;
+    ctx.fillStyle = o.tokens.ui.bg; ctx.fillRect(pad, 0, d.cols * cs, pad);
+    ctx.fillStyle = o.tokens.ui.ruler; ctx.font = `${Math.max(8, Math.round(Math.min(cs, 18) * 0.6))}px sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     for (let i = 0; i < d.cols; i += 5) ctx.fillText(String(i + 1), pad + dx(i) * cs + cs / 2, pad / 2);
   }

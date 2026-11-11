@@ -35,6 +35,8 @@ export type FlatOpts = {
   cell: number; pegs?: boolean; codes?: boolean; rulers?: boolean; guides?: boolean; margin?: boolean; markers?: boolean;
   /** 個別豆子的縮放（以格子中心；k = j * cols + i）；編輯區的跳動動畫用，≤0 時畫成空格 */
   beadScale?: (k: number) => number;
+  /** 覆寫板面配色（編輯區依亮暗主題傳入）；豆子顏色不受影響。未傳時用 UI（伺服器匯出固定亮色） */
+  ui?: Partial<Pick<typeof UI, 'bg' | 'board' | 'peg' | 'ruler' | 'guide'>>;
 };
 
 export function flatLayout(d: Design, o: FlatOpts) {
@@ -45,20 +47,21 @@ export function flatLayout(d: Design, o: FlatOpts) {
 export function drawFlat(ctx: C2D, d: Design, v: Variant, p: Palette, o: FlatOpts): void {
   const { pad, w, h } = flatLayout(d, o);
   const cs = o.cell;
-  ctx.fillStyle = UI.bg; ctx.fillRect(0, 0, w, h);
+  const ui = { ...UI, ...o.ui };
+  ctx.fillStyle = ui.bg; ctx.fillRect(0, 0, w, h);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   if (o.rulers) {
-    ctx.fillStyle = UI.ruler; ctx.font = `${Math.max(8, Math.round(Math.min(cs, 18) * 0.6))}px sans-serif`;
+    ctx.fillStyle = ui.ruler; ctx.font = `${Math.max(8, Math.round(Math.min(cs, 18) * 0.6))}px sans-serif`;
     for (let i = 0; i < d.cols; i += 5) ctx.fillText(String(i + 1), pad + i * cs + cs / 2, pad / 2);
     for (let j = 0; j < d.rows; j += 5) ctx.fillText(String(j + 1), pad / 2, pad + j * cs + cs / 2);
   }
-  ctx.fillStyle = UI.board; ctx.fillRect(pad, pad, d.cols * cs, d.rows * cs);
+  ctx.fillStyle = ui.board; ctx.fillRect(pad, pad, d.cols * cs, d.rows * cs);
   for (let j = 0; j < d.rows; j++) for (let i = 0; i < d.cols; i++) {
     const cx = pad + i * cs + cs / 2, cy = pad + j * cs + cs / 2;
     const code = v.cells[j * d.cols + i];
     const scale = code && o.beadScale ? o.beadScale(j * d.cols + i) : 1;
     if (!code || scale <= 0) {
-      if (o.pegs !== false) { ctx.fillStyle = UI.peg; ctx.beginPath(); ctx.arc(cx, cy, Math.max(1, cs * 0.1), 0, Math.PI * 2); ctx.fill(); }
+      if (o.pegs !== false) { ctx.fillStyle = ui.peg; ctx.beginPath(); ctx.arc(cx, cy, Math.max(1, cs * 0.1), 0, Math.PI * 2); ctx.fill(); }
       continue;
     }
     const hex = p.get(code)?.displayHex ?? '#FF00FF';
@@ -70,7 +73,7 @@ export function drawFlat(ctx: C2D, d: Design, v: Variant, p: Palette, o: FlatOpt
     }
   }
   if (o.guides) {
-    ctx.strokeStyle = UI.guide; ctx.lineWidth = 1;
+    ctx.strokeStyle = ui.guide; ctx.lineWidth = 1;
     for (let k = 5; k < d.cols; k += 5) { ctx.beginPath(); ctx.moveTo(pad + k * cs, pad); ctx.lineTo(pad + k * cs, pad + d.rows * cs); ctx.stroke(); }
     for (let k = 5; k < d.rows; k += 5) { ctx.beginPath(); ctx.moveTo(pad, pad + k * cs); ctx.lineTo(pad + d.cols * cs, pad + k * cs); ctx.stroke(); }
   }

@@ -3,11 +3,26 @@
   --paper: #F6EEDF; --card: #FFFDF8; --ink: #4A3A2E; --ink-soft: #8A7464;
   --board: #EADBC4; --peg: #D9C6A6; --peach: #E8A87C; --alert: #C8503F;
   --inspect: #F2C14E; /* 檢查器標出問題格子的黃圈 */
+  /* 編輯區 canvas 的板面（亮色與 core/render UI 相同，伺服器匯出的 PNG 固定用這組亮色）；
+     canvas 讀不懂 var()／color-mix，這裡只能放實際色值 */
+  --canvas-bg: #FBF6EE; --canvas-board: #EFE3D0; --canvas-peg: #E2D2BA;
+  --canvas-ruler: #9C8670; --canvas-guide: rgba(156, 134, 112, 0.3);
   --line: color-mix(in srgb, var(--ink) 14%, transparent);
   --shadow: 0 1px 3px color-mix(in srgb, var(--ink) 18%, transparent);
   --r-sm: 8px; --r-md: 14px; --r-lg: 20px;
   --font: "Huninn", "PingFang TC", "Noto Sans TC", sans-serif;
   --fs-xs: 12px; --fs-sm: 13px; --fs-md: 15px; --fs-lg: 18px; --fs-xl: 22px;
+}
+/* 暗色：「夜裡的手作桌」——溫暖的可可色，不是純黑或冷灰。只重新定義同一組 token，
+   元件不另寫暗色樣式；豆子顏色來自色票，不隨主題改變 */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #2A221C; --card: #352B24; --ink: #F1E6D6; --ink-soft: #B8A693;
+  --board: #3D3229; --peg: #57483A; --peach: #E8A87C; --alert: #E57A66;
+  --inspect: #F2C14E;
+  --shadow: 0 1px 3px color-mix(in srgb, #000 35%, transparent);
+  --canvas-bg: #30271F; --canvas-board: #4A3D32; --canvas-peg: #5E4E40;
+  --canvas-ruler: #A8957F; --canvas-guide: rgba(241, 230, 214, 0.16);
 }
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
