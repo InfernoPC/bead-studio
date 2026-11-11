@@ -30,6 +30,9 @@ export function AppShell({ conn, snapshot, editor, dispatch }: Props) {
   const [notice, setNotice] = useState<string | null>(null);
   const designId = design?.id;
   useEffect(() => setNotice(null), [designId]);
+  // 換作品或換配色版本時，畫布上的檢查器標示就不再對得上，清掉
+  const variantId = design?.activeVariant;
+  useEffect(() => dispatch({ type: 'highlightCells', cells: null }), [designId, variantId, dispatch]);
   // 用量跟著畫面走：筆畫送出、伺服器還沒回應前也算進去
   const shown = displayDesign(design, editor.pending);
   const variant = shown ? getVariant(shown) : null;
@@ -61,6 +64,7 @@ export function AppShell({ conn, snapshot, editor, dispatch }: Props) {
         </div>
         <SidePanel
           titles={variant ? { usage: `用量（${variant.name}）` } : undefined}
+          liveMeta={{ checks: true }}
           meta={variant ? {
             usage: <span className="num">共 {usageTotal(variant.cells)} 顆</span>,
             checks: <span className={`num${issues.length ? ' is-short' : ''}`}>{issues.length ? `${issues.length} 個問題` : '沒有問題'}</span>,
@@ -72,8 +76,8 @@ export function AppShell({ conn, snapshot, editor, dispatch }: Props) {
             ? <UsagePanel cells={variant.cells} palette={snapshot.palette} inventory={snapshot.inventory}
                 color={editor.color} highlightCode={editor.highlightCode} dispatch={dispatch} />
             : note('開啟作品後顯示用量。')}
-          checks={design
-            ? <ChecksPanel issues={issues} highlightCells={editor.highlightCells} dispatch={dispatch} />
+          checks={design && snapshot
+            ? <ChecksPanel issues={issues} palette={snapshot.palette} highlightCells={editor.highlightCells} dispatch={dispatch} />
             : note('開啟作品後自動檢查。')}
           preview={note(design ? '3D 預覽會在這裡顯示。' : '開啟作品後顯示 3D 預覽。')}
         />

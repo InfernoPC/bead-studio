@@ -3,6 +3,7 @@
   --paper: #F6EEDF; --card: #FFFDF8; --ink: #4A3A2E; --ink-soft: #725D4E;
   --board: #EADBC4; --peg: #D9C6A6; --peach: #E8A87C; --alert: #B5402F;
   --inspect: #F2C14E; /* 檢查器標出問題格子的黃圈 */
+  --canvas-dim: #4A3A2E; /* 高亮時蓋在其他格子上的暗化色（亮暗都要「變暗」，所以暗色不能用 --ink） */
   /* 編輯區 canvas 的板面（底色、板子、釘子、格線與 core/render UI 相同；尺規數字加深到 AA 對比，
      伺服器匯出的 PNG 不受影響、固定用 core 的亮色）；canvas 讀不懂 var()／color-mix，這裡只能放實際色值。
      --canvas-rim：豆子外圈的淡色描邊，只在暗色時設定（黑豆在暗板上才看得清楚），亮色留空＝不畫 */
@@ -23,7 +24,7 @@
   color-scheme: dark;
   --paper: #2A221C; --card: #352B24; --ink: #F1E6D6; --ink-soft: #B8A693;
   --board: #3D3229; --peg: #57483A; --peach: #E8A87C; --alert: #E57A66;
-  --inspect: #F2C14E;
+  --inspect: #F2C14E; --canvas-dim: #120E0A;
   --shadow: 0 1px 3px color-mix(in srgb, #000 35%, transparent);
   --canvas-bg: #30271F; --canvas-board: #4A3D32; --canvas-peg: #5E4E40;
   --canvas-ruler: #A8957F; --canvas-guide: rgba(241, 230, 214, 0.16);

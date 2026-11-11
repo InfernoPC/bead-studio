@@ -31,8 +31,8 @@ export function reduceEditor(s: EditorState, a: EditorAction): EditorState {
     case 'pickColor': return { ...s, color: a.code, recent: [a.code, ...s.recent.filter((c) => c !== a.code)].slice(0, RECENT_MAX) };
     case 'zoom': return { ...s, zoom: Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, s.zoom * a.factor)) };
     case 'toggleMirror': return { ...s, mirror: !s.mirror };
-    case 'highlightCode': return { ...s, highlightCode: a.code };
-    case 'highlightCells': return { ...s, highlightCells: a.cells };
+    case 'highlightCode': return { ...s, highlightCode: a.code, highlightCells: a.code ? null : s.highlightCells };
+    case 'highlightCells': return { ...s, highlightCells: a.cells, highlightCode: a.cells ? null : s.highlightCode };
     case 'preview': return { ...s, pending: a.pending };
     case 'clearPreview': return { ...s, pending: null };
   }

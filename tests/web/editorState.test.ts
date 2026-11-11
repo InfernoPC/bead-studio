@@ -23,6 +23,9 @@ describe('editor reducer', () => {
     expect(s.highlightCode).toBe('A1');
     s = reduceEditor(s, { type: 'highlightCells', cells: [[1, 2]] });
     expect(s.highlightCells).toEqual([[1, 2]]);
+    expect(s.highlightCode).toBeNull(); // 兩種高亮互斥
+    s = reduceEditor(s, { type: 'highlightCode', code: 'B2' });
+    expect(s.highlightCells).toBeNull();
     const pending = { baseVersion: 1, design: smallDesign() };
     s = reduceEditor(s, { type: 'preview', pending });
     expect(s.pending).toBe(pending);

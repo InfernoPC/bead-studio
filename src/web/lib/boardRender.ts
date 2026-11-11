@@ -5,11 +5,11 @@ import { drawFlat, flatLayout } from '../../core/render/draw';
 import type { CellFrame } from './bounce';
 
 const FLAT = { pegs: true, rulers: true, guides: true, margin: true, markers: true } as const;
-const DIM = 0.35;
+const DIM = 0.45;
 
 /** 從 tokens.css 讀取畫布要用的顏色（元件不寫死色碼）；亮暗主題切換後要重新讀取（見 lib/theme useTheme） */
 export type Tokens = {
-  alert: string; ink: string; inkSoft: string; inspect: string;
+  alert: string; ink: string; inkSoft: string; inspect: string; dim: string;
   /** 板面配色，傳給 core drawFlat；豆子顏色不在這裡，永遠來自色票 */
   ui: { bg: string; board: string; peg: string; ruler: string; guide: string; rim?: string };
 };
@@ -17,7 +17,7 @@ export function readTokens(): Tokens {
   const s = getComputedStyle(document.documentElement);
   const v = (name: string) => s.getPropertyValue(name).trim();
   return {
-    alert: v('--alert'), ink: v('--ink'), inkSoft: v('--ink-soft'), inspect: v('--inspect'),
+    alert: v('--alert'), ink: v('--ink'), inkSoft: v('--ink-soft'), inspect: v('--inspect'), dim: v('--canvas-dim'),
     ui: { bg: v('--canvas-bg'), board: v('--canvas-board'), peg: v('--canvas-peg'), ruler: v('--canvas-ruler'), guide: v('--canvas-guide'), rim: v('--canvas-rim') || undefined },
   };
 }
@@ -86,7 +86,7 @@ export function drawBoard(ctx: CanvasRenderingContext2D, design: Design, o: Boar
 
   // 單色高亮：其他格子暗化
   if (o.highlightCode) {
-    ctx.save(); ctx.globalAlpha = DIM; ctx.fillStyle = o.tokens.ink;
+    ctx.save(); ctx.globalAlpha = DIM; ctx.fillStyle = o.tokens.dim;
     for (let k = 0; k < v.cells.length; k++) {
       if (v.cells[k] === o.highlightCode) continue;
       ctx.fillRect(pad + (k % d.cols) * cs, pad + Math.floor(k / d.cols) * cs, cs, cs);
@@ -97,7 +97,7 @@ export function drawBoard(ctx: CanvasRenderingContext2D, design: Design, o: Boar
   // 檢查器高亮：暗化其他格子＋黃圈
   if (o.highlightCells) {
     const keep = new Set(o.highlightCells.map(([x, y]) => y * d.cols + dx(x)));
-    ctx.save(); ctx.globalAlpha = DIM; ctx.fillStyle = o.tokens.ink;
+    ctx.save(); ctx.globalAlpha = DIM; ctx.fillStyle = o.tokens.dim;
     for (let k = 0; k < v.cells.length; k++) {
       if (!keep.has(k)) ctx.fillRect(pad + (k % d.cols) * cs, pad + Math.floor(k / d.cols) * cs, cs, cs);
     }
