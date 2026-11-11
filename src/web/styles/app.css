@@ -106,8 +106,127 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 /* 右側面板 */
 .side { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow-y: auto; padding-bottom: 2px; }
 .panel { background: var(--card); border-radius: var(--r-md); box-shadow: var(--shadow); padding: 12px 14px; }
-.panel-title { margin: 0 0 8px; font-size: var(--fs-sm); font-weight: 700; }
+.panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 0 0 8px; }
+.panel-title { margin: 0; font-size: var(--fs-sm); font-weight: 700; min-width: 0; }
+.panel-meta { font-size: var(--fs-xs); color: var(--ink-soft); white-space: nowrap; }
 .panel-note { margin: 0; font-size: var(--fs-xs); color: var(--ink-soft); line-height: 1.6; }
+
+/* ---- 色票：分格豆盒（全站唯一的視覺亮點；周圍元件保持安靜） ----
+   盒子 = 稍深的奶色外框 → 1px 隔板（--line，用 grid gap 透出）→ 半透明奶白格子，格底略有內凹陰影；
+   格子裡的豆子是 canvas（core drawBeadFlat），顏色永遠來自色票 */
+.tray-panel { display: flex; flex-direction: column; gap: 10px; }
+.bead-dot, .tray-pile { display: block; flex: none; }
+
+.tray-current { display: flex; align-items: center; gap: 10px; min-height: 48px; }
+.tray-current-text { min-width: 0; margin: 0; font-size: var(--fs-sm); line-height: 1.5; }
+.tray-current-text > div:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tray-current-code { font-size: var(--fs-lg); font-weight: 700; margin-right: 2px; }
+.tray-current-stock { font-size: var(--fs-xs); color: var(--ink-soft); }
+.tray-current-stock.is-missing { color: var(--alert); }
+.tray-current-empty {
+  flex: none; width: 36px; height: 36px; margin: 4px; border-radius: 50%;
+  border: 1.5px dashed color-mix(in srgb, var(--ink) 28%, transparent);
+}
+.tray-current-text.muted { font-size: var(--fs-xs); }
+
+/* 篩選：安靜的分段控制（選中的段落是浮起的卡片色，不用 --peach） */
+.seg {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 2px;
+  border-radius: 999px; background: color-mix(in srgb, var(--board) 70%, var(--card));
+}
+.seg-btn {
+  border: 0; border-radius: 999px; padding: 4px 6px; cursor: pointer; white-space: nowrap;
+  background: transparent; color: var(--ink-soft); font: inherit; font-size: var(--fs-xs);
+}
+.seg-btn:hover { color: var(--ink); }
+.seg-btn[aria-pressed="true"] { background: var(--card); color: var(--ink); box-shadow: var(--shadow); }
+
+.tray-search {
+  display: flex; align-items: center; gap: 6px; padding: 0 10px; height: 32px;
+  border: 1.5px solid var(--line); border-radius: 10px; background: var(--paper); color: var(--ink-soft);
+}
+.tray-search:focus-within { border-color: color-mix(in srgb, var(--ink) 35%, transparent); }
+.tray-search svg { width: 15px; height: 15px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
+.tray-search input {
+  flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; padding: 0;
+  color: var(--ink); font: inherit; font-size: var(--fs-xs);
+}
+.tray-search input::placeholder { color: var(--ink-soft); opacity: 1; }
+
+.tray {
+  padding: 5px; border-radius: 12px;
+  background: color-mix(in srgb, var(--board) 62%, var(--card));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--card) 70%, transparent),
+    inset 0 -1px 2px color-mix(in srgb, var(--ink) 10%, transparent),
+    0 1px 2px color-mix(in srgb, var(--ink) 12%, transparent);
+}
+.tray-grid {
+  position: relative; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1px;
+  max-height: 318px; overflow-y: auto; overscroll-behavior: contain;
+  border-radius: 8px; background: var(--line);
+  scrollbar-width: thin; scrollbar-color: var(--peg) transparent;
+}
+.tray-slot {
+  position: relative; display: flex; flex-direction: column; align-items: center;
+  padding: 4px 1px 4px; cursor: pointer; line-height: 1.15;
+  /* 半透明奶白：外框的顏色微微透過來，像塑膠收納盒 */
+  background:
+    linear-gradient(to bottom, color-mix(in srgb, var(--ink) 10%, transparent), transparent 8px),
+    linear-gradient(to right, color-mix(in srgb, var(--ink) 5%, transparent), transparent 5px),
+    color-mix(in srgb, var(--card) 74%, transparent);
+  /* 格子下緣的一道亮邊：塑膠隔板的厚度 */
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--card) 70%, transparent);
+}
+.tray-slot.is-filler { cursor: default; }
+.tray-slot:not(.is-filler):hover { background-color: color-mix(in srgb, var(--card) 95%, transparent); }
+.tray-slot:focus-visible { outline-offset: -3px; }
+.tray-slot[aria-selected="true"] { box-shadow: inset 0 0 0 2px var(--peach); background-color: var(--card); }
+.tray-pile { margin-bottom: 1px; }
+.tray-code { font-size: 11px; font-weight: 700; }
+.tray-count { font-size: 10px; color: var(--ink-soft); }
+.tray-slot.is-missing .tray-code { color: var(--ink-soft); font-weight: 400; opacity: .7; }
+.tray-tag {
+  position: absolute; top: 2px; left: 0; right: 0; text-align: center;
+  font-size: 9px; color: var(--ink-soft); pointer-events: none;
+}
+.tray-empty { padding: 18px 10px; text-align: center; font-size: var(--fs-xs); color: var(--ink-soft); }
+.tray-empty p { margin: 0 0 6px; }
+.link-btn, .link {
+  border: 0; padding: 0; background: none; cursor: pointer; font: inherit; font-size: var(--fs-xs);
+  color: var(--ink); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--ink) 35%, transparent);
+  text-underline-offset: 3px;
+}
+.link-btn:hover, .link:hover { text-decoration-color: currentColor; }
+
+.tray-recent { display: flex; align-items: center; gap: 8px; min-height: 26px; font-size: var(--fs-xs); }
+.tray-recent-label { flex: none; color: var(--ink-soft); }
+.tray-recent-beads { display: flex; gap: 2px; flex-wrap: wrap; }
+.recent-bead { padding: 1px; border: 0; border-radius: 50%; background: none; cursor: pointer; }
+.recent-bead[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--peach); }
+.tray-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding-top: 8px; border-top: 1px solid var(--line); font-size: var(--fs-xs);
+}
+
+/* ---- 用量 ---- */
+.usage-list { list-style: none; margin: 0 -6px; padding: 0; max-height: 264px; overflow-y: auto; scrollbar-width: thin; }
+.usage-row {
+  width: 100%; display: flex; align-items: center; gap: 7px; padding: 4px 6px;
+  border: 0; border-radius: var(--r-sm); background: transparent; cursor: pointer;
+  color: var(--ink); font: inherit; font-size: var(--fs-xs); text-align: left;
+  -webkit-touch-callout: none; user-select: none;
+}
+.usage-row:hover { background: color-mix(in srgb, var(--board) 40%, transparent); }
+.usage-row.is-current { box-shadow: inset 0 0 0 1.5px var(--peach); }
+.usage-row.is-highlight { background: color-mix(in srgb, var(--board) 70%, transparent); }
+.usage-code { flex: none; min-width: 2.6em; font-weight: 700; }
+.usage-name { flex: 1; min-width: 0; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.usage-count { flex: none; }
+.is-short { color: var(--alert); font-weight: 700; }
+.usage-short { flex: none; color: var(--alert); font-weight: 700; }
+.usage-hint { margin: 8px 0 0; font-size: var(--fs-xs); color: var(--ink-soft); line-height: 1.5; }
+.usage-footer { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
 
 /* ---- 窄螢幕：右側面板移到舞台下方 ---- */
 @media (max-width: 899px) {

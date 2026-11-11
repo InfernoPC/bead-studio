@@ -2,12 +2,16 @@ import { useCallback, useEffect, useState, type Dispatch } from 'react';
 import type { StateSnapshot } from '../lib/api';
 import type { EditorAction, EditorState, Tool } from '../lib/editorState';
 import type { ConnState } from '../lib/serverState';
+import { getVariant } from '../../core/model';
+import { displayDesign } from '../lib/clientCore';
+import { BeadTray } from './BeadTray';
 import { Editor } from './Editor';
 import { OfflineBanner } from './OfflineBanner';
 import { SidePanel } from './SidePanel';
 import { StatusBar } from './StatusBar';
 import { ToolRail } from './ToolRail';
 import { TopBar } from './TopBar';
+import { UsagePanel, usageTotal } from './UsagePanel';
 
 type Props = {
   conn: ConnState; snapshot: StateSnapshot | null;
@@ -25,6 +29,9 @@ export function AppShell({ conn, snapshot, editor, dispatch }: Props) {
   const [notice, setNotice] = useState<string | null>(null);
   const designId = design?.id;
   useEffect(() => setNotice(null), [designId]);
+  // 用量跟著畫面走：筆畫送出、伺服器還沒回應前也算進去
+  const shown = displayDesign(design, editor.pending);
+  const variant = shown ? getVariant(shown) : null;
 
   return (
     <div className="shell">
@@ -51,8 +58,15 @@ export function AppShell({ conn, snapshot, editor, dispatch }: Props) {
           />
         </div>
         <SidePanel
-          palette={note(snapshot ? `共 ${snapshot.palette.length} 種顏色` : '正在載入色票…')}
-          usage={note(design ? '用量會在這裡統計。' : '開啟作品後顯示用量。')}
+          titles={variant ? { usage: `用量（${variant.name}）` } : undefined}
+          meta={variant ? { usage: <span className="num">共 {usageTotal(variant.cells)} 顆</span> } : undefined}
+          palette={snapshot
+            ? <BeadTray palette={snapshot.palette} inventory={snapshot.inventory} color={editor.color} recent={editor.recent} dispatch={dispatch} />
+            : note('正在載入色票…')}
+          usage={variant && snapshot
+            ? <UsagePanel cells={variant.cells} palette={snapshot.palette} inventory={snapshot.inventory}
+                color={editor.color} highlightCode={editor.highlightCode} dispatch={dispatch} />
+            : note('開啟作品後顯示用量。')}
           checks={note(design ? '檢查結果會在這裡列出。' : '開啟作品後自動檢查。')}
           preview={note(design ? '3D 預覽會在這裡顯示。' : '開啟作品後顯示 3D 預覽。')}
         />

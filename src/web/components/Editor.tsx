@@ -27,7 +27,7 @@ function isTyping(t: EventTarget | null): boolean {
 /** 空白鍵本身有作用的控制項（按鈕、連結、表單欄位等） */
 function isControl(t: EventTarget | null): boolean {
   if (!(t instanceof HTMLElement)) return false;
-  return isTyping(t) || !!t.closest('button, a[href], summary, [role="button"], [role="checkbox"], [role="switch"], [role="tab"], [role="menuitem"]');
+  return isTyping(t) || !!t.closest('button, a[href], summary, [role="button"], [role="checkbox"], [role="switch"], [role="tab"], [role="menuitem"], [role="option"]');
 }
 
 type Gesture =
