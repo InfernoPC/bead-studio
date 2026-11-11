@@ -21,6 +21,7 @@ export function setBoard(
   let cropped = 0;
 
   if (beadChanged) {
+    if (d.shapeLocked) throw new OpError('shape_locked', '形狀已鎖定：保持實體尺寸換豆子會重新取樣、改變形狀；請改用 keep: cells 或先解鎖');
     src = (x, y) => Math.floor(((y + 0.5) * d.rows) / rows) * d.cols + Math.floor(((x + 0.5) * d.cols) / cols);
     moveMarker = (x, y) => [Math.floor(((x + 0.5) * cols) / d.cols), Math.floor(((y + 0.5) * rows) / d.rows)];
   } else {
@@ -34,6 +35,9 @@ export function setBoard(
       if (d.mask[i] !== '1') continue;
       const nx = (i % d.cols) + dx, ny = Math.floor(i / d.cols) + dy;
       if (nx < 0 || ny < 0 || nx >= cols || ny >= rows) cropped++;
+    }
+    if (cropped > 0 && d.shapeLocked) {
+      throw new OpError('shape_locked', `形狀已鎖定：新尺寸會裁掉 ${cropped} 顆豆子；請先解鎖或改用較大的尺寸`);
     }
     if (cropped > 0 && !opts.force) {
       throw new OpError('would_crop', `新尺寸會裁掉 ${cropped} 顆豆子；確認要裁切請加上 force: true`);

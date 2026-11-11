@@ -41,4 +41,19 @@ describe('setBoard', () => {
     const { design } = setBoard(d, { widthMm: 60, heightMm: 60 }, { keep: 'size' });
     expect(design.markers).toEqual([{ type: 'hole', x: 3, y: 3 }]);
   });
+  it('shape lock rejects cropping even with force, and resampling', () => {
+    const d = { ...paint(smallDesign(10, 10), [[0, 0, 'A1']]), shapeLocked: true };
+    expect(() => setBoard(d, { widthMm: 40, heightMm: 40 }, { keep: 'size', force: true })).toThrow(/形狀已鎖定/);
+    expect(() => setBoard(d, { bead: 2.6 }, { keep: 'size' })).toThrow(/形狀已鎖定/);
+    try { setBoard(d, { bead: 2.6 }, { keep: 'size' }); } catch (e) { expect((e as any).code).toBe('shape_locked'); }
+  });
+  it('shape lock allows margin changes, keep-cells bead changes and growing', () => {
+    const d = { ...paint(smallDesign(10, 10), [[0, 0, 'A1']]), shapeLocked: true };
+    expect(setBoard(d, { margin: 3 }, { keep: 'size' }).design.board.margin).toBe(3);
+    expect(setBoard(d, { bead: 2.6 }, { keep: 'cells' }).design.cols).toBe(10);
+    const grown = setBoard(d, { widthMm: 60, heightMm: 60 }, { keep: 'size' }).design;
+    expect(at(grown, 1, 1)).toBe('A1');
+    const shrunkEmpty = setBoard({ ...smallDesign(10, 10), shapeLocked: true }, { widthMm: 40, heightMm: 40 }, { keep: 'size' });
+    expect(shrunkEmpty.cropped).toBe(0);
+  });
 });
