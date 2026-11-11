@@ -63,7 +63,10 @@ function DeductBody({ design, palette, inventory, onClose, onDone }: Omit<Props,
           </ul>
         </>
       ) : (
-        <p className="modal-text">「{design.name}」（{variant.name}）沒有用到你登記擁有的顏色，沒有東西可以扣。</p>
+        <p className="modal-text">「{design.name}」（{variant.name}）沒有用到還有庫存的顏色，沒有東西可以扣。</p>
+      )}
+      {plan.outOfStock.length > 0 && (
+        <p className="modal-note">已經沒有庫存：{plan.outOfStock.map((r) => `${r.code}（不夠 ${r.used} 顆）`).join('、')}</p>
       )}
       {plan.skipped.length > 0 && (
         <p className="modal-note">未擁有的色號不受影響：{plan.skipped.map((r) => r.code).join('、')}</p>

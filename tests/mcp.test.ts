@@ -122,13 +122,18 @@ describe('MCP tools', () => {
       { op: 'rect', x: 1, y: 1, w: 3, h: 1, color: 'A1' }, { op: 'rect', x: 1, y: 2, w: 2, h: 1, color: 'B1' },
       { op: 'rect', x: 1, y: 3, w: 1, h: 1, color: 'C1' },
     ] });
-    await text('set_inventory', { items: [{ code: 'A1', owned: true, count: 10 }, { code: 'B1', owned: true, count: 1 }] });
+    await text('apply_ops', { ops: [{ op: 'rect', x: 1, y: 4, w: 2, h: 1, color: 'H1' }] });
+    await text('set_inventory', { items: [
+      { code: 'A1', owned: true, count: 10 }, { code: 'B1', owned: true, count: 1 }, { code: 'H1', owned: true, count: 0 },
+    ] });
     const r = await text('deduct_inventory');
     expect(r.ok).toBe(true);
     expect(r.text).toMatch(/A1 扣 3 顆（10 → 7）/);
     expect(r.text).toMatch(/B1 扣 1 顆（1 → 0），不夠 1 顆/);
     expect(r.text).toMatch(/扣到 0 的色號：B1/);
     expect(r.text).toMatch(/未擁有、沒有扣：C1/);
+    expect(r.text).toMatch(/已經沒有庫存（不夠）：H1 不夠 2 顆/);
+    expect(r.text).not.toMatch(/H1 扣/);
     expect(store.inventory.A1.count).toBe(7);
     const none = await text('deduct_inventory', { variant: 'v9' });
     expect(none.ok).toBe(false);

@@ -11,7 +11,7 @@ const slot = (page: Page, code: string) => page.locator(`li.inv-slot[data-code="
 
 test.afterAll(async ({ request }) => {
   // 不影響其他 spec：收回這裡登記的庫存與校色
-  await request.post('/api/tools/set_inventory', { data: { items: ['A1', 'A2', 'A3'].map((code) => ({ code, owned: false, count: 0 })) } });
+  await request.post('/api/tools/set_inventory', { data: { items: ['A1', 'A2', 'A3', 'A4'].map((code) => ({ code, owned: false, count: 0 })) } });
   await request.post('/api/tools/calibrate_color', { data: { code: 'A1', hex: null } });
 });
 
@@ -62,11 +62,82 @@ test('calibrating a color changes how its beads look in the editor', async ({ pa
   await expect.poll(() => calibrated(page, 'A1')).toBe('#00FF00');
   await expect(a1.getByRole('button', { name: '清除 A1 的校正' })).toBeVisible();
 
+  // 拖動色盤（只有 input 事件）只改畫面，不送出；選定（change）才送
+  const color = a1.locator('input[type="color"]');
+  let sent = 0;
+  page.on('request', (r) => { if (r.url().endsWith('/api/tools/calibrate_color')) sent++; });
+  await color.evaluate((el: HTMLInputElement) => {
+    const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+    for (const v of ['#ff0000', '#ff3300', '#ff6600']) { set.call(el, v); el.dispatchEvent(new Event('input', { bubbles: true })); }
+  });
+  await page.waitForTimeout(300);
+  expect(sent).toBe(0);
+  expect(await calibrated(page, 'A1')).toBe('#00FF00');
+  await color.evaluate((el: HTMLInputElement) => el.dispatchEvent(new Event('change', { bubbles: true })));
+  await expect.poll(() => calibrated(page, 'A1')).toBe('#FF6600');
+  expect(sent).toBe(1);
+  await color.fill('#00ff00');
+  await expect.poll(() => calibrated(page, 'A1')).toBe('#00FF00');
+
   await page.getByRole('link', { name: '返回編輯' }).click();
   await expect.poll(() => pixel(page, 0, 0)).not.toEqual(before);
   const [r, g, b] = await pixel(page, 0, 0);
   expect(g).toBeGreaterThan(r + 60);
   expect(g).toBeGreaterThan(b + 60);
+});
+
+test('clearing a calibration keeps focus in the slot', async ({ page }) => {
+  await page.goto('/#/inventory');
+  const a1 = slot(page, 'A1');
+  await a1.getByRole('button', { name: '清除 A1 的校正' }).click();
+  await expect(a1.getByRole('button', { name: '清除 A1 的校正' })).toBeHidden();
+  await expect(a1.locator('input[type="color"]')).toBeFocused();
+  await expect.poll(() => calibrated(page, 'A1')).toBeNull();
+  await tool(page, 'calibrate_color', { code: 'A1', hex: '#00FF00' }); // 下一個測試還要用綠色的 A1
+});
+
+test('a save whose refresh arrives before the response still shows later changes made elsewhere', async ({ page }) => {
+  await page.goto('/#/inventory');
+  const count = slot(page, 'A4').getByRole('textbox', { name: 'A4 顆數' });
+  // 讓 set_inventory 的回應晚到：伺服器已經寫入、廣播 meta、畫面重新整理之後，回應才回來
+  await page.route('**/api/tools/set_inventory', async (route) => {
+    const res = await route.fetch();
+    await new Promise((r) => setTimeout(r, 800));
+    await route.fulfill({ response: res });
+  });
+  await count.fill('25');
+  await count.blur();
+  await expect.poll(() => inv(page, 'A4')).toEqual({ owned: true, count: 25 });
+  await page.waitForTimeout(1200); // 回應已回來
+  await page.unroute('**/api/tools/set_inventory');
+  await tool(page, 'set_inventory', { items: [{ code: 'A4', count: 55 }] }); // 例如 AI 改的
+  await expect(count).toHaveValue('55');
+  await tool(page, 'set_inventory', { items: [{ code: 'A4', owned: false, count: 0 }] });
+  await expect(count).toHaveValue('0');
+});
+
+test('a failed save is reported, on the page and after going back to the editor', async ({ page }) => {
+  await page.goto('/#/inventory');
+  await page.route('**/api/tools/set_inventory', (route) =>
+    route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ message: '磁碟寫不進去' }) }));
+  const count = slot(page, 'A4').getByRole('textbox', { name: 'A4 顆數' });
+
+  // 延遲送出的路徑：留在庫存頁，錯誤顯示在頁首，數字恢復成伺服器上的值
+  await count.fill('33');
+  await count.blur();
+  await expect(page.getByRole('alert')).toContainText('庫存沒有存到（A4）');
+  await expect(page.getByRole('alert')).toContainText('磁碟寫不進去');
+  await expect(count).toHaveValue('0');
+  await page.getByRole('button', { name: '關閉提示' }).click();
+
+  // 離開時送出的路徑：庫存頁已經關了，錯誤改顯示在編輯頁的提示條
+  await count.fill('44');
+  await page.getByRole('link', { name: '返回編輯' }).click();
+  await expect(page).toHaveURL(/#\/$/);
+  await expect(page.getByRole('alert')).toContainText('庫存沒有存到（A4）');
+  await expect(page.getByRole('alert')).toContainText('請回庫存頁再改一次');
+  expect(await inv(page, 'A4')).toEqual({ owned: false, count: 0 });
+  await page.unroute('**/api/tools/set_inventory');
 });
 
 test('weighing converts grams to a bead count with the unit weight', async ({ page }) => {

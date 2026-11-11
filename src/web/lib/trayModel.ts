@@ -1,4 +1,5 @@
 // 分格豆盒與用量面板的純資料：哪些格子要顯示、每格裝幾顆豆、作品用了多少
+import { countCodes } from '../../core/model';
 import type { Inventory, PaletteColor } from '../../core/palette';
 
 /** 豆盒的檢視篩選（只影響畫面，不是伺服器給 AI 用的 paletteMode） */
@@ -51,9 +52,7 @@ export function traySlots(palette: PaletteColor[], inv: Inventory, f: TrayFilter
 
 /** 每個顏色用了幾顆、庫存幾顆、缺幾顆；依用量由多到少（同量依色號） */
 export function usageRows(cells: (string | null)[], inv: Inventory): UsageRow[] {
-  const used = new Map<string, number>();
-  for (const c of cells) if (c) used.set(c, (used.get(c) ?? 0) + 1);
-  return [...used]
+  return Object.entries(countCodes(cells))
     .map(([code, n]) => { const stock = stockOf(inv, code); return { code, used: n, stock, short: Math.max(0, n - stock) }; })
     .sort((a, b) => b.used - a.used || compareCodes(a.code, b.code));
 }

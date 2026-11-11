@@ -22,10 +22,12 @@ import { UsagePanel, usageTotal } from './UsagePanel';
 type Props = {
   conn: ConnState; snapshot: StateSnapshot | null;
   editor: EditorState; dispatch: Dispatch<EditorAction>;
+  /** 工具列下方提示條的內容（導入圖片、扣庫存、庫存頁沒存到的修改）；放在 App 層，離開庫存頁後也收得到 */
+  notice: Notice | null; onNotice(n: Notice | null): void;
 };
 
 /** 版面：上方工具列／左側工具列＋舞台＋狀態列／右側面板（窄螢幕移到下方） */
-export function AppShell({ conn, snapshot, editor, dispatch }: Props) {
+export function AppShell({ conn, snapshot, editor, dispatch, notice: importNotice, onNotice: setImportNotice }: Props) {
   const design = snapshot?.current ?? null;
   const editable = conn === 'online';
   const setTool = useCallback((tool: Tool) => dispatch({ type: 'setTool', tool }), [dispatch]);
@@ -44,8 +46,7 @@ export function AppShell({ conn, snapshot, editor, dispatch }: Props) {
   const issues = useIssues(shown, snapshot?.palette, snapshot?.inventory, snapshot?.checks);
   // 建立新作品（作品選單、空狀態）與面板設定（狀態列的尺寸）對話框
   // 導入圖片的結果，顯示在工具列下方的提示條
-  const [importNotice, setImportNotice] = useState<Notice | null>(null);
-  const closeImportNotice = useCallback(() => setImportNotice(null), []);
+  const closeImportNotice = useCallback(() => setImportNotice(null), [setImportNotice]);
   const [dialog, setDialog] = useState<'new' | 'board' | 'deduct' | null>(null);
   const closeDialog = useCallback(() => setDialog(null), []);
   // 離線時不能改，開著的對話框也一併關掉

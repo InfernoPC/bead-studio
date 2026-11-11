@@ -54,9 +54,12 @@ function summaryText(s: Summary, checks: string): string {
 
 function deductionText(d: Design, variant: string, plan: DeductionPlan): string {
   const name = getVariant(d, variant).name;
+  const tail = [
+    plan.outOfStock.length ? `已經沒有庫存（不夠）：${plan.outOfStock.map((r) => `${r.code} 不夠 ${r.used} 顆`).join('、')}` : '',
+    plan.skipped.length ? `未擁有、沒有扣：${plan.skipped.map((r) => r.code).join('、')}` : '',
+  ];
   if (plan.deducted.length === 0) {
-    return `「${d.name}」（${name}）沒有用到任何擁有的顏色，庫存沒有變動。`
-      + (plan.skipped.length ? `\n未擁有、沒有扣：${plan.skipped.map((r) => r.code).join('、')}` : '');
+    return [`「${d.name}」（${name}）沒有用到還有庫存的顏色，庫存沒有變動。`, ...tail].filter(Boolean).join('\n');
   }
   const out = plan.deducted.map((r) => {
     const short = r.used - r.before;
@@ -67,7 +70,7 @@ function deductionText(d: Design, variant: string, plan: DeductionPlan): string 
     `已從庫存扣掉「${d.name}」（${name}）用掉的豆子：`,
     ...out,
     empty.length ? `扣到 0 的色號：${empty.join('、')}` : '',
-    plan.skipped.length ? `未擁有、沒有扣：${plan.skipped.map((r) => r.code).join('、')}` : '',
+    ...tail,
   ].filter(Boolean).join('\n');
 }
 

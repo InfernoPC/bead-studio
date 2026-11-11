@@ -1,10 +1,11 @@
 // 庫存與校色頁（#/inventory）：依系列分段的分格豆盒，每格登記「我有」、顆數（可秤重換算）、校正顯示色。
-// 勾選與顆數延遲 600ms 合併成一次 set_inventory；校色即時送 calibrate_color。
+// 勾選與顆數延遲 600ms 合併成一次 set_inventory；校色在色盤選定時送 calibrate_color（拖動中只更新畫面）。
 // 回到編輯頁、頁面隱藏或關閉時，還沒送出的修改立刻送出
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import type { Inventory, PaletteColor } from '../../core/palette';
 import { callTool, toolError, type StateSnapshot } from '../lib/api';
 import type { ConnState } from '../lib/serverState';
+import type { Notice } from './ImportOverlay';
 import { compareCodes, traySlots, type TraySlot } from '../lib/trayModel';
 import { gramsToCount, loadUnitWeights, parseWeight, saveUnitWeights, type UnitWeights } from '../lib/weight';
 import { BeadDot, Pile, PILE_H, PILE_W, useBeadInk, type BeadInk } from './BeadTray';
@@ -17,17 +18,39 @@ type Item = { code: string } & Patch;
 
 /* ---------- 勾選與顆數：本機先顯示，延遲合併送出 ---------- */
 
-/** 回傳「伺服器的庫存＋還沒被伺服器反映的本機修改」，以及修改／立即送出的函式 */
+const sameAsServer = (p: Patch, s: Inventory[string] | undefined) => {
+  const cur = s ?? { owned: false, count: 0 };
+  return (p.owned === undefined || p.owned === cur.owned) && (p.count === undefined || p.count === cur.count);
+};
+
+/** 回傳「伺服器的庫存＋還沒被伺服器反映的本機修改」，以及修改的函式。
+ *  本機修改（overlay）在伺服器的值和它一樣時拿掉；已送出成功、但下一次重新整理時值已被別處改掉的，也拿掉（以伺服器為準） */
 function useInventoryEdits(inventory: Inventory, onError: (msg: string | null) => void) {
-  // 還沒被伺服器反映的修改（未送出＋已送出、等 meta 重新整理）
   const [overlay, setOverlay] = useState<Record<string, Patch>>({});
   const queue = useRef<Record<string, Patch>>({}); // 還沒送出的
-  const awaiting = useRef<Record<string, Patch>>({}); // 已送出成功、等伺服器狀態更新的
+  const awaiting = useRef(new Set<string>()); // 已送出成功、等下一次重新整理的
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [inflight, setInflight] = useState(0);
   const [queued, setQueued] = useState(false);
   const errorRef = useRef(onError);
   errorRef.current = onError;
+  const server = useRef(inventory);
+  server.current = inventory;
+
+  /** 拿掉已和伺服器一致的修改；settle 時連已送出、等重新整理的也一併拿掉 */
+  const prune = useCallback((settle: boolean) => {
+    const done = settle ? awaiting.current : new Set<string>();
+    if (settle) awaiting.current = new Set();
+    setOverlay((o) => {
+      let changed = false;
+      const n = { ...o };
+      for (const [code, p] of Object.entries(o)) {
+        if (code in queue.current) continue; // 還有沒送出的新值
+        if (sameAsServer(p, server.current[code]) || done.has(code)) { delete n[code]; changed = true; }
+      }
+      return changed ? n : o;
+    });
+  }, []);
 
   const flush = useCallback((keepalive = false) => {
     clearTimeout(timer.current);
@@ -42,10 +65,12 @@ function useInventoryEdits(inventory: Inventory, onError: (msg: string | null) =
       setInflight((n) => n - 1);
       if (res.ok) {
         errorRef.current(null);
-        Object.assign(awaiting.current, sent);
+        for (const code of Object.keys(sent)) awaiting.current.add(code);
+        prune(false); // 重新整理可能比回應先到
         return;
       }
-      errorRef.current(`庫存沒有存到：${toolError(res.text).message}`);
+      const codes = items.map((i) => i.code).join('、');
+      errorRef.current(`庫存沒有存到（${codes}）：${toolError(res.text).message}請回庫存頁再改一次。`);
       // 沒存到的修改恢復成伺服器上的值（之後又改過的保留）
       setOverlay((o) => {
         const n = { ...o };
@@ -53,19 +78,9 @@ function useInventoryEdits(inventory: Inventory, onError: (msg: string | null) =
         return n;
       });
     });
-  }, []);
+  }, [prune]);
 
-  // 伺服器的庫存更新了：已送出的修改都已反映（或被更新的值蓋過），從 overlay 拿掉；之後又改過的保留
-  useEffect(() => {
-    const done = awaiting.current;
-    awaiting.current = {};
-    if (Object.keys(done).length === 0) return;
-    setOverlay((o) => {
-      const n = { ...o };
-      for (const code of Object.keys(done)) if (!(code in queue.current)) delete n[code];
-      return n;
-    });
-  }, [inventory]);
+  useEffect(() => prune(true), [inventory, prune]);
 
   const edit = useCallback((items: Item[]) => {
     setOverlay((o) => {
@@ -105,13 +120,32 @@ function useInventoryEdits(inventory: Inventory, onError: (msg: string | null) =
   return { inventory: merged, edit, saving: inflight > 0 || queued };
 }
 
-/* ---------- 校色：即時送出；拖動色盤時同一色號只留一個請求在路上，結束後補送最新的值 ---------- */
+/* ---------- 校色：拖動色盤時只更新畫面（preview），放開／選定時才送出（commit）；
+   同一色號只留一個請求在路上，結束後補送最新的值 ---------- */
+
+const serverHex = (p: PaletteColor | undefined) => p?.calibratedHex?.toUpperCase() ?? null;
 
 function useCalibration(palette: PaletteColor[], onError: (msg: string | null) => void) {
   const [drafts, setDrafts] = useState<Record<string, string | null>>({});
   const lanes = useRef(new Map<string, { next?: string | null }>());
   const errorRef = useRef(onError);
   errorRef.current = onError;
+  const server = useRef(palette);
+  server.current = palette;
+
+  // 草稿和伺服器一致、而且沒有請求在路上：拿掉
+  const prune = useCallback(() => {
+    setDrafts((d) => {
+      const byCode = new Map(server.current.map((p) => [p.code, p]));
+      let changed = false;
+      const n = { ...d };
+      for (const [code, hex] of Object.entries(d)) {
+        if (lanes.current.has(code)) continue;
+        if (serverHex(byCode.get(code)) === hex) { delete n[code]; changed = true; }
+      }
+      return changed ? n : d;
+    });
+  }, []);
 
   const send = useCallback((code: string, hex: string | null) => {
     const lane = lanes.current.get(code);
@@ -120,31 +154,33 @@ function useCalibration(palette: PaletteColor[], onError: (msg: string | null) =
     lanes.current.set(code, me);
     void callTool('calibrate_color', { code, hex }).then((res) => {
       lanes.current.delete(code);
-      if (!res.ok) errorRef.current(`校色沒有存到：${toolError(res.text).message}`);
-      else errorRef.current(null);
-      if (me.next !== undefined) send(code, me.next);
-      else if (!res.ok) setDrafts((d) => { const n = { ...d }; delete n[code]; return n; });
+      errorRef.current(res.ok ? null : `校色沒有存到：${toolError(res.text).message}`);
+      if (me.next !== undefined) { send(code, me.next); return; }
+      if (res.ok) prune(); // 重新整理可能比回應先到
+      else setDrafts((d) => { const n = { ...d }; delete n[code]; return n; });
+    });
+  }, [prune]);
+
+  /** 只更新畫面（色盤拖動中） */
+  const preview = useCallback((code: string, hex: string) => {
+    const want = hex.toUpperCase();
+    const p = server.current.find((x) => x.code === code);
+    setDrafts((d) => {
+      // 拖回伺服器上的顏色時瀏覽器不會送 change：直接拿掉草稿，不要留下一個「校正成原色」的假象
+      if (!lanes.current.has(code) && want === (p?.calibratedHex ?? p?.hex)?.toUpperCase()) {
+        if (!(code in d)) return d;
+        const n = { ...d }; delete n[code]; return n;
+      }
+      return { ...d, [code]: want };
     });
   }, []);
-
-  const calibrate = useCallback((code: string, hex: string | null) => {
+  /** 送出（色盤選定、清除校正） */
+  const commit = useCallback((code: string, hex: string | null) => {
     setDrafts((d) => ({ ...d, [code]: hex === null ? null : hex.toUpperCase() }));
     send(code, hex);
   }, [send]);
 
-  // 伺服器的色票已經是這個值、而且沒有請求在路上：草稿功成身退
-  useEffect(() => {
-    setDrafts((d) => {
-      const byCode = new Map(palette.map((p) => [p.code, p]));
-      let changed = false;
-      const n = { ...d };
-      for (const [code, hex] of Object.entries(d)) {
-        if (lanes.current.has(code)) continue;
-        if ((byCode.get(code)?.calibratedHex?.toUpperCase() ?? null) === hex) { delete n[code]; changed = true; }
-      }
-      return changed ? n : d;
-    });
-  }, [palette]);
+  useEffect(() => prune(), [palette, prune]);
 
   const shown = useMemo((): PaletteColor[] => {
     if (Object.keys(drafts).length === 0) return palette;
@@ -156,16 +192,26 @@ function useCalibration(palette: PaletteColor[], onError: (msg: string | null) =
     });
   }, [palette, drafts]);
 
-  return { palette: shown, calibrate };
+  return { palette: shown, preview, commit };
 }
 
 /* ---------- 頁面 ---------- */
 
-type Props = { conn: ConnState; snapshot: StateSnapshot | null };
+type Props = {
+  conn: ConnState; snapshot: StateSnapshot | null;
+  /** 離開庫存頁之後才回來的錯誤（例如回編輯頁時送出的最後一批沒存到）：交給編輯頁的提示條 */
+  onLeftNotice(n: Notice): void;
+};
 
-export function InventoryPage({ conn, snapshot }: Props) {
+export function InventoryPage({ conn, snapshot, onLeftNotice }: Props) {
   const editable = conn === 'online';
   const [error, setError] = useState<string | null>(null);
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const report = useCallback((msg: string | null) => {
+    if (mounted.current) setError(msg);
+    else if (msg) onLeftNotice({ text: msg, tone: 'alert' });
+  }, [onLeftNotice]);
   const headingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => { headingRef.current?.focus(); }, []);
 
@@ -190,7 +236,7 @@ export function InventoryPage({ conn, snapshot }: Props) {
       </header>
       <OfflineBanner conn={conn} />
       {snapshot
-        ? <InventoryBody palette={snapshot.palette} inventory={snapshot.inventory} editable={editable} onError={setError} />
+        ? <InventoryBody palette={snapshot.palette} inventory={snapshot.inventory} editable={editable} onError={report} />
         : <p className="panel-note inv-loading">正在載入色票…</p>}
     </div>
   );
@@ -201,7 +247,7 @@ function InventoryBody({ palette: serverPalette, inventory: serverInv, editable,
 }) {
   const ink = useBeadInk();
   const { inventory, edit, saving } = useInventoryEdits(serverInv, onError);
-  const { palette, calibrate } = useCalibration(serverPalette, onError);
+  const { palette, preview, commit } = useCalibration(serverPalette, onError);
   const [query, setQuery] = useState('');
   const [units, setUnits] = useState<UnitWeights>(() => loadUnitWeights());
 
@@ -292,7 +338,7 @@ function InventoryBody({ palette: serverPalette, inventory: serverInv, editable,
                     <InvSlot
                       key={s.code} slot={s} original={original.get(s.code) ?? s.hex} calibrated={calibrated.get(s.code) ?? null}
                       ink={ink} weighOpen={weighing?.code === s.code}
-                      onOwned={setOwned} onCount={setCount} onCalibrate={calibrate} onWeigh={openWeigh}
+                      onOwned={setOwned} onCount={setCount} onPreviewColor={preview} onCalibrate={commit} onWeigh={openWeigh}
                     />
                   ))}
                 </ul>
@@ -356,11 +402,22 @@ function UnitWeightFields({ units, disabled, onChange }: { units: UnitWeights; d
 type SlotProps = {
   slot: TraySlot; original: string; calibrated: string | null; ink: BeadInk; weighOpen: boolean;
   onOwned(code: string, owned: boolean): void; onCount(code: string, n: number): void;
-  onCalibrate(code: string, hex: string | null): void; onWeigh(slot: TraySlot, el: HTMLElement): void;
+  onPreviewColor(code: string, hex: string): void; onCalibrate(code: string, hex: string | null): void;
+  onWeigh(slot: TraySlot, el: HTMLElement): void;
 };
 
-const InvSlot = memo(function InvSlot({ slot: s, original, calibrated, ink, weighOpen, onOwned, onCount, onCalibrate, onWeigh }: SlotProps) {
+const InvSlot = memo(function InvSlot({ slot: s, original, calibrated, ink, weighOpen, onOwned, onCount, onPreviewColor, onCalibrate, onWeigh }: SlotProps) {
   const id = useId();
+  // 色盤：React 的 onChange 是每次 input 都觸發（拖動中）；原生 change 才是選定，這時才送出
+  const colorRef = useRef<HTMLInputElement>(null);
+  const commitColor = useRef(onCalibrate);
+  commitColor.current = onCalibrate;
+  useEffect(() => {
+    const el = colorRef.current!;
+    const onCommit = () => commitColor.current(s.code, el.value);
+    el.addEventListener('change', onCommit);
+    return () => el.removeEventListener('change', onCommit);
+  }, [s.code]);
   // 正在輸入的文字：輸入中不讓伺服器的重新整理蓋掉；離開欄位後改回顯示實際庫存
   const [typing, setTyping] = useState<string | null>(null);
   const shownCount = typing ?? String(s.count);
@@ -410,13 +467,15 @@ const InvSlot = memo(function InvSlot({ slot: s, original, calibrated, ink, weig
         </span>
         <label className="inv-color">
           <input
-            type="color" value={(calibrated ?? original).toLowerCase()} aria-label={`${s.code} 校正顯示色`}
-            onChange={(e) => onCalibrate(s.code, e.target.value)}
+            ref={colorRef} type="color" value={(calibrated ?? original).toLowerCase()} aria-label={`${s.code} 校正顯示色`}
+            onChange={(e) => onPreviewColor(s.code, e.target.value)}
           />
           <span>校色</span>
         </label>
         {calibrated && (
-          <button type="button" className="link-btn inv-clear" aria-label={`清除 ${s.code} 的校正`} onClick={() => onCalibrate(s.code, null)}>
+          <button type="button" className="link-btn inv-clear" aria-label={`清除 ${s.code} 的校正`}
+            // 按鈕清除後就消失：焦點移到同一格的色盤，不掉到頁面最上面
+            onClick={() => { onCalibrate(s.code, null); colorRef.current?.focus(); }}>
             清除校正
           </button>
         )}

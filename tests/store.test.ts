@@ -119,6 +119,21 @@ describe('DesignStore', () => {
     expect(plan.skipped.map((r) => r.code)).toEqual(['C1', 'T1']);
     expect(JSON.parse(readFileSync(join(dir, 'data/inventory.json'), 'utf8')).A1).toEqual({ owned: true, count: 7 });
   });
+  it('deductInventory treats owned colors with 0 beads as out of stock and does not write or emit when nothing changes', () => {
+    const s = mkStore();
+    s.create('x', board);
+    s.update(undefined, (d) => applyOps(d, [{ op: 'rect', x: 0, y: 0, w: 3, h: 1, color: 'A1' }], s.ctx()).design);
+    s.setInventory([{ code: 'A1', owned: true, count: 0 }]);
+    const path = join(dir, 'data/inventory.json');
+    writeFileSync(path, '{"marker":1}'); // 有寫入就會被蓋掉
+    let metas = 0;
+    s.on('meta', () => metas++);
+    const plan = s.deductInventory(s.get());
+    expect(plan.deducted).toEqual([]);
+    expect(plan.outOfStock).toEqual([{ code: 'A1', used: 3 }]);
+    expect(metas).toBe(0);
+    expect(readFileSync(path, 'utf8')).toBe('{"marker":1}');
+  });
   it('deductInventory uses the given variant and does not touch design history', () => {
     const s = mkStore();
     s.create('x', board);

@@ -1,5 +1,6 @@
 import { useEffect, useReducer, useState } from 'react';
 import { AppShell } from './components/AppShell';
+import type { Notice } from './components/ImportOverlay';
 import { InventoryPage } from './components/InventoryPage';
 import { initialEditor, reduceEditor } from './lib/editorState';
 import { useServer } from './lib/useServer';
@@ -23,7 +24,9 @@ export function App() {
   // 編輯狀態（工具、顏色、縮放）放在這一層：去庫存頁再回來不會重設
   const [editor, dispatch] = useReducer(reduceEditor, initialEditor);
   const route = useRoute();
+  // 編輯頁工具列下方的提示條；庫存頁關掉後才失敗的儲存也送到這裡
+  const [notice, setNotice] = useState<Notice | null>(null);
   return route === 'inventory'
-    ? <InventoryPage conn={state.conn} snapshot={state.snapshot} />
-    : <AppShell conn={state.conn} snapshot={state.snapshot} editor={editor} dispatch={dispatch} />;
+    ? <InventoryPage conn={state.conn} snapshot={state.snapshot} onLeftNotice={setNotice} />
+    : <AppShell conn={state.conn} snapshot={state.snapshot} editor={editor} dispatch={dispatch} notice={notice} onNotice={setNotice} />;
 }
