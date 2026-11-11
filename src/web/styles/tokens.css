@@ -8,6 +8,7 @@
      伺服器匯出的 PNG 不受影響、固定用 core 的亮色）；canvas 讀不懂 var()／color-mix，這裡只能放實際色值。
      --canvas-rim：豆子外圈的淡色描邊，只在暗色時設定（黑豆在暗板上才看得清楚），亮色留空＝不畫 */
   --canvas-bg: #FBF6EE; --canvas-board: #EFE3D0; --canvas-peg: #E2D2BA;
+  --canvas-board-edge: #D9C6A8; /* 3D 實體預覽：釘板的側面厚度 */
   --canvas-ruler: #7F6A59; --canvas-guide: rgba(156, 134, 112, 0.3); --canvas-rim: ;
   /* 色票豆盒：豆子落在格子底的影子（canvas 用實際色值）；透明豆畫成淡藍灰（豆色，不隨主題改變） */
   --tray-bead-shadow: rgba(74, 58, 46, 0.24); --bead-clear: #C9D5DE;
@@ -26,7 +27,7 @@
   --board: #3D3229; --peg: #57483A; --peach: #E8A87C; --alert: #E57A66;
   --inspect: #F2C14E; --canvas-dim: #120E0A;
   --shadow: 0 1px 3px color-mix(in srgb, #000 35%, transparent);
-  --canvas-bg: #30271F; --canvas-board: #4A3D32; --canvas-peg: #5E4E40;
+  --canvas-bg: #30271F; --canvas-board: #4A3D32; --canvas-peg: #5E4E40; --canvas-board-edge: #3A2F26;
   --canvas-ruler: #A8957F; --canvas-guide: rgba(241, 230, 214, 0.16);
   --canvas-rim: rgba(241, 230, 214, 0.18);
   --tray-bead-shadow: rgba(0, 0, 0, 0.45); --tray-missing-mix: 68%;

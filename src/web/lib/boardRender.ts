@@ -12,6 +12,8 @@ export type Tokens = {
   alert: string; ink: string; inkSoft: string; inspect: string; dim: string;
   /** 板面配色，傳給 core drawFlat；豆子顏色不在這裡，永遠來自色票 */
   ui: { bg: string; board: string; peg: string; ruler: string; guide: string; rim?: string };
+  /** 3D 實體預覽（core drawIso）多用到的板子側面色 */
+  boardEdge: string;
 };
 export function readTokens(): Tokens {
   const s = getComputedStyle(document.documentElement);
@@ -19,6 +21,7 @@ export function readTokens(): Tokens {
   return {
     alert: v('--alert'), ink: v('--ink'), inkSoft: v('--ink-soft'), inspect: v('--inspect'), dim: v('--canvas-dim'),
     ui: { bg: v('--canvas-bg'), board: v('--canvas-board'), peg: v('--canvas-peg'), ruler: v('--canvas-ruler'), guide: v('--canvas-guide'), rim: v('--canvas-rim') || undefined },
+    boardEdge: v('--canvas-board-edge'),
   };
 }
 

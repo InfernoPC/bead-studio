@@ -98,7 +98,11 @@ export function drawFlat(ctx: C2D, d: Design, v: Variant, p: Palette, o: FlatOpt
   }
 }
 
-export type IsoOpts = { size: number; tilt?: number; yaw?: number; board?: boolean; ironed?: boolean; zoom?: number };
+export type IsoOpts = {
+  size: number; tilt?: number; yaw?: number; board?: boolean; ironed?: boolean; zoom?: number;
+  /** 覆寫底色與板子配色（網頁實體預覽依亮暗主題傳入）；豆子顏色不受影響。未傳時用 UI（伺服器匯出固定亮色） */
+  ui?: Partial<Pick<typeof UI, 'bg' | 'board' | 'boardEdge' | 'peg'>> & { rim?: string };
+};
 
 export function drawIso(ctx: C2D, d: Design, v: Variant, p: Palette, o: IsoOpts): void {
   const S = o.size, tilt = ((o.tilt ?? 40) * Math.PI) / 180, yaw = ((o.yaw ?? 20) * Math.PI) / 180;
@@ -108,17 +112,18 @@ export function drawIso(ctx: C2D, d: Design, v: Variant, p: Palette, o: IsoOpts)
   const raw = (u: number, w: number, z: number) => { const rx = u * cy - w * sy, ry = u * sy + w * cy; return [rx, ry * ct - z * st, ry]; };
   const s = ((S - 10) / (Math.max(d.cols, d.rows) * 1.45)) * (o.zoom ?? 1);
   const P2 = (u: number, w: number, z: number) => { const r = raw(u, w, z); return [S / 2 + r[0] * s, S / 2 + r[1] * s, r[2]]; };
-  ctx.fillStyle = UI.bg; ctx.fillRect(0, 0, S, S);
+  const ui = { ...UI, ...o.ui }, rim = o.ui?.rim;
+  ctx.fillStyle = ui.bg; ctx.fillRect(0, 0, S, S);
   const hw = d.cols / 2, hh = d.rows / 2;
   const corners: [number, number][] = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]];
   const poly = (pts: number[][]) => { ctx.beginPath(); pts.forEach((q, k) => (k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]))); ctx.closePath(); ctx.fill(); };
   if (showBoard) {
-    ctx.fillStyle = UI.boardEdge;
+    ctx.fillStyle = ui.boardEdge;
     for (let i = 0; i < 4; i++) {
       const a = corners[i], b = corners[(i + 1) % 4];
       poly([P2(a[0], a[1], 0), P2(b[0], b[1], 0), P2(b[0], b[1], -0.35), P2(a[0], a[1], -0.35)]);
     }
-    ctx.fillStyle = UI.board; poly(corners.map(([u, w]) => P2(u, w, 0)));
+    ctx.fillStyle = ui.board; poly(corners.map(([u, w]) => P2(u, w, 0)));
   }
   const items: { u: number; w: number; c: string | null; dep: number }[] = [];
   for (let j = 0; j < d.rows; j++) for (let i = 0; i < d.cols; i++) {
@@ -134,7 +139,7 @@ export function drawIso(ctx: C2D, d: Design, v: Variant, p: Palette, o: IsoOpts)
   for (const it of items) {
     const [bx, by] = P2(it.u, it.w, 0);
     if (!it.c) {
-      if (showBoard) { ctx.fillStyle = UI.peg; ctx.beginPath(); ctx.ellipse(bx, by, 0.09 * s, 0.09 * s * ct, 0, 0, Math.PI * 2); ctx.fill(); }
+      if (showBoard) { ctx.fillStyle = ui.peg; ctx.beginPath(); ctx.ellipse(bx, by, 0.09 * s, 0.09 * s * ct, 0, 0, Math.PI * 2); ctx.fill(); }
       continue;
     }
     const base = p.get(it.c)?.displayHex ?? '#FF00FF';
@@ -145,6 +150,7 @@ export function drawIso(ctx: C2D, d: Design, v: Variant, p: Palette, o: IsoOpts)
         poly(rsq.map(([du, dw]) => P2(it.u + du, it.w + dw, z)));
       }
       ctx.fillStyle = shadeHex(base, 0.04); poly(rsq.map(([du, dw]) => P2(it.u + du, it.w + dw, BH)));
+      if (rim) { ctx.strokeStyle = rim; ctx.lineWidth = Math.max(0.5, s * 0.05); ctx.stroke(); }
       ctx.fillStyle = shadeHex(base, -0.45); ctx.beginPath(); ctx.ellipse(tx, ty, hx * 0.55, hx * 0.55 * ct, 0, 0, Math.PI * 2); ctx.fill();
       continue;
     }
@@ -157,6 +163,8 @@ export function drawIso(ctx: C2D, d: Design, v: Variant, p: Palette, o: IsoOpts)
     const tg = ctx.createRadialGradient(tx - ex * 0.2, ty - ey * 0.2, ex * 0.2, tx, ty, ex);
     tg.addColorStop(0, shadeHex(base, 0.12)); tg.addColorStop(1, shadeHex(base, -0.08));
     ctx.fillStyle = tg; ctx.beginPath(); ctx.ellipse(tx, ty, ex, ey, 0, 0, Math.PI * 2); ctx.fill();
+    // 暗色主題：頂面外緣的淡色描邊，深色豆在暗底上才看得出輪廓（豆子本身的顏色不變）
+    if (rim) { ctx.strokeStyle = rim; ctx.lineWidth = Math.max(0.5, s * 0.05); ctx.stroke(); }
     ctx.fillStyle = shadeHex(base, -0.4); ctx.beginPath(); ctx.ellipse(tx, ty, hx, hx * ct, 0, 0, Math.PI * 2); ctx.fill();
   }
 }

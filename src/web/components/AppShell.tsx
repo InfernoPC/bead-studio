@@ -8,6 +8,7 @@ import { ChecksPanel, useIssues } from './ChecksPanel';
 import { BeadTray } from './BeadTray';
 import { Editor } from './Editor';
 import { OfflineBanner } from './OfflineBanner';
+import { Preview3D } from './Preview3D';
 import { SidePanel } from './SidePanel';
 import { StatusBar } from './StatusBar';
 import { ToolRail } from './ToolRail';
@@ -79,7 +80,10 @@ export function AppShell({ conn, snapshot, editor, dispatch }: Props) {
           checks={design && snapshot
             ? <ChecksPanel issues={issues} palette={snapshot.palette} highlightCells={editor.highlightCells} dispatch={dispatch} />
             : note('開啟作品後自動檢查。')}
-          preview={note(design ? '3D 預覽會在這裡顯示。' : '開啟作品後顯示 3D 預覽。')}
+          // 預覽跟著伺服器上的作品走，不跟每一格筆畫預覽重畫，畫筆才保持順暢
+          preview={design && snapshot
+            ? <Preview3D design={design} palette={snapshot.palette} />
+            : note('開啟作品後顯示 3D 預覽。')}
         />
       </div>
     </div>

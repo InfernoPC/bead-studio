@@ -251,6 +251,49 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .usage-hint { margin: 8px 0 0; font-size: var(--fs-xs); color: var(--ink-soft); line-height: 1.5; }
 .usage-footer { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
 
+/* ---- 3D 實體預覽 ----
+   畫布是一塊內凹的小桌面（底色由 canvas 依主題畫出）；控制項保持安靜：勾選與滑桿用 --ink，不用 --peach */
+.preview { display: flex; flex-direction: column; gap: 10px; }
+.preview-stage { display: grid; place-items: center; aspect-ratio: 1; min-width: 0; }
+.preview-canvas {
+  display: block; border-radius: var(--r-sm); cursor: grab; touch-action: none;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.preview-canvas:active { cursor: grabbing; }
+.preview-controls { display: flex; flex-direction: column; gap: 8px; font-size: var(--fs-xs); }
+.preview-toggles { display: flex; gap: 16px; }
+.preview-check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.preview-check input { margin: 0; width: 15px; height: 15px; accent-color: var(--ink); cursor: pointer; }
+.preview-tilt { display: grid; grid-template-columns: auto minmax(0, 1fr) 3.2em; align-items: center; gap: 8px; }
+.preview-tilt input { width: 100%; margin: 0; accent-color: var(--ink-soft); }
+.preview-tilt output { text-align: right; color: var(--ink-soft); }
+.preview-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+.preview-size { margin: 0; font-size: var(--fs-xs); color: var(--ink-soft); min-width: 0; }
+.btn-quiet {
+  flex: none; border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; cursor: pointer;
+  background: transparent; color: var(--ink); font: inherit; font-size: var(--fs-xs);
+}
+.btn-quiet:hover { background: color-mix(in srgb, var(--board) 45%, var(--card)); }
+
+/* 放大：全螢幕的 modal，同一組畫布與控制項，畫布填滿中間 */
+.preview-dialog {
+  width: 100vw; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 16px;
+  border: 0; background: var(--paper); color: var(--ink);
+}
+.preview-dialog::backdrop { background: var(--paper); }
+.preview-dialog-body {
+  height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 12px;
+  max-width: 1100px; margin: 0 auto;
+}
+.preview-dialog-head { display: flex; align-items: baseline; gap: 14px; }
+.preview-dialog-head .panel-title { font-size: var(--fs-md); }
+.preview-dialog-head .btn-quiet { margin-left: auto; }
+.preview-dialog .preview-stage { aspect-ratio: auto; min-height: 0; }
+.preview-dialog .preview-controls {
+  flex-direction: row; align-items: center; justify-content: center; gap: 28px; font-size: var(--fs-sm);
+}
+.preview-dialog .preview-tilt { width: min(320px, 50vw); }
+
 /* ---- 窄螢幕：右側面板移到舞台下方 ---- */
 @media (max-width: 899px) {
   .shell { height: auto; min-height: 100%; }

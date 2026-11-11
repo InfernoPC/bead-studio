@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { loadImage, createCanvas } from '@napi-rs/canvas';
 import { renderPng } from '../src/server/render';
-import { drawFlat, flatLayout, UI, type FlatOpts } from '../src/core/render/draw';
+import { drawFlat, drawIso, flatLayout, UI, type FlatOpts, type IsoOpts } from '../src/core/render/draw';
 import { getVariant } from '../src/core/model';
 import { createVariant } from '../src/core/variants';
 import { smallDesign, paint, palette, ctxAll } from './fixtures';
@@ -65,5 +65,34 @@ describe('drawFlat theme override', () => {
     expect(dark.bead).toEqual(light.bead);
     const noRim = draw({ ...DARK, rim: undefined });
     expect(dark.rim).not.toEqual(noRim.rim);
+  });
+});
+
+describe('drawIso theme override', () => {
+  const hex = (h: string) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16), 255];
+  const DARK = { bg: '#30271F', board: '#4A3D32', boardEdge: '#3B3027', peg: '#5E4E40' };
+  function draw(ui?: IsoOpts['ui']) {
+    const d = paint(smallDesign(), [[0, 0, 'H2']]);
+    const size = 200;
+    const c = createCanvas(size, size);
+    const ctx = c.getContext('2d');
+    drawIso(ctx as unknown as CanvasRenderingContext2D, d, getVariant(d), palette, { size, tilt: 0, yaw: 0, ui });
+    const at = (x: number, y: number) => [...ctx.getImageData(x, y, 1, 1).data];
+    // tilt 0、yaw 0 時是正上方俯視：板子置中，(0,0) 的豆子在左上角；中間附近是空格的板面
+    const s = (size - 10) / (Math.max(d.cols, d.rows) * 1.45);
+    const bead = [size / 2 + (-d.cols / 2 + 0.5) * s, size / 2 + (-d.rows / 2 + 0.5) * s];
+    return { bg: at(1, 1), board: at(Math.round(size / 2 + s * 0.15), Math.round(size / 2 + s * 0.15)), bead: at(Math.round(bead[0] - s * 0.3), Math.round(bead[1] - s * 0.3)) };
+  }
+  it('without an override paints the fixed light background (server export unchanged)', () => {
+    const p = draw();
+    expect(p.bg).toEqual(hex(UI.bg));
+    expect(p.board).toEqual(hex(UI.board));
+  });
+  it('a dark override recolours background and board but keeps bead colours', () => {
+    const light = draw();
+    const dark = draw(DARK);
+    expect(dark.bg).toEqual(hex(DARK.bg));
+    expect(dark.board).toEqual(hex(DARK.board));
+    expect(dark.bead).toEqual(light.bead);
   });
 });
