@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type Dispatch } from 'react';
+import { useCallback, useEffect, useMemo, useState, type Dispatch } from 'react';
 import type { StateSnapshot } from '../lib/api';
 import type { EditorAction, EditorState, Tool } from '../lib/editorState';
 import type { ConnState } from '../lib/serverState';
@@ -7,6 +7,7 @@ import { displayDesign } from '../lib/clientCore';
 import { ChecksPanel, useIssues } from './ChecksPanel';
 import { BeadTray } from './BeadTray';
 import { BoardDialog } from './BoardDialog';
+import { DeductDialog } from './DeductDialog';
 import { Editor } from './Editor';
 import { ImportOverlay, type Notice } from './ImportOverlay';
 import { NewDesignDialog } from './NewDesignDialog';
@@ -45,12 +46,16 @@ export function AppShell({ conn, snapshot, editor, dispatch }: Props) {
   // 導入圖片的結果，顯示在工具列下方的提示條
   const [importNotice, setImportNotice] = useState<Notice | null>(null);
   const closeImportNotice = useCallback(() => setImportNotice(null), []);
-  const [dialog, setDialog] = useState<'new' | 'board' | null>(null);
+  const [dialog, setDialog] = useState<'new' | 'board' | 'deduct' | null>(null);
   const closeDialog = useCallback(() => setDialog(null), []);
   // 離線時不能改，開著的對話框也一併關掉
   useEffect(() => { if (!editable) setDialog(null); }, [editable]);
   // 換作品（或作品不見了）時，開著的面板設定已經對不上，一併關掉；建立新作品的表單與目前作品無關，保留
-  useEffect(() => setDialog((d) => (d === 'board' ? null : d)), [designId]);
+  useEffect(() => setDialog((d) => (d === 'board' || d === 'deduct' ? null : d)), [designId]);
+  // 用量面板底部：做完作品後扣庫存（先確認）。元素固定下來，用量面板的 memo 才不會每次重畫
+  const deductButton = useMemo(() => (
+    <button type="button" className="btn-quiet usage-deduct" disabled={!editable} onClick={() => setDialog('deduct')}>做完了，扣庫存</button>
+  ), [editable]);
 
   return (
     <div className="shell">
@@ -90,7 +95,7 @@ export function AppShell({ conn, snapshot, editor, dispatch }: Props) {
             : note('正在載入色票…')}
           usage={variant && snapshot
             ? <UsagePanel cells={variant.cells} palette={snapshot.palette} inventory={snapshot.inventory}
-                color={editor.color} highlightCode={editor.highlightCode} dispatch={dispatch} />
+                color={editor.color} highlightCode={editor.highlightCode} dispatch={dispatch} footer={deductButton} />
             : note('開啟作品後顯示用量。')}
           checks={design && snapshot
             ? <ChecksPanel issues={issues} palette={snapshot.palette} highlightCells={editor.highlightCells} dispatch={dispatch} />
@@ -104,6 +109,10 @@ export function AppShell({ conn, snapshot, editor, dispatch }: Props) {
       <NewDesignDialog open={dialog === 'new'} onClose={closeDialog} />
       <ImportOverlay design={design} editable={editable} onNotice={setImportNotice} />
       {design && <BoardDialog open={dialog === 'board'} design={design} onClose={closeDialog} />}
+      {design && snapshot && (
+        <DeductDialog open={dialog === 'deduct'} design={design} palette={snapshot.palette} inventory={snapshot.inventory}
+          onClose={closeDialog} onDone={setImportNotice} />
+      )}
     </div>
   );
 }

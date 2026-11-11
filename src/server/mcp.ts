@@ -5,11 +5,11 @@ import { setBoard } from '../core/board';
 import { formatIssues, runChecks } from '../core/checks';
 import { describeDesign } from '../core/describe';
 import { OpError } from '../core/errors';
-import { getVariant } from '../core/model';
+import { getVariant, type Design } from '../core/model';
 import { MAX_BOARD_MM, MAX_OPS, OpSchema, RegionSchema } from '../core/opSchema';
 import { applyOps, type Summary } from '../core/ops';
 import { encodeDesignText } from '../core/textCodec';
-import { allowedCodes } from '../core/palette';
+import { allowedCodes, type DeductionPlan } from '../core/palette';
 import { createVariant, recolorVariant, selectVariant } from '../core/variants';
 import { resolveUserPath, type PathOpts } from './paths';
 import { importImageBuffer } from './importBuffer';
@@ -49,6 +49,25 @@ function summaryText(s: Summary, checks: string): string {
     `變化：${delta}`,
     s.clipped ? `裁切：${s.clipped} 格超出畫布被略過` : '',
     `檢查：\n${checks}`,
+  ].filter(Boolean).join('\n');
+}
+
+function deductionText(d: Design, variant: string, plan: DeductionPlan): string {
+  const name = getVariant(d, variant).name;
+  if (plan.deducted.length === 0) {
+    return `「${d.name}」（${name}）沒有用到任何擁有的顏色，庫存沒有變動。`
+      + (plan.skipped.length ? `\n未擁有、沒有扣：${plan.skipped.map((r) => r.code).join('、')}` : '');
+  }
+  const out = plan.deducted.map((r) => {
+    const short = r.used - r.before;
+    return `${r.code} 扣 ${r.before - r.after} 顆（${r.before} → ${r.after}）${short > 0 ? `，不夠 ${short} 顆` : ''}`;
+  });
+  const empty = plan.deducted.filter((r) => r.after === 0).map((r) => r.code);
+  return [
+    `已從庫存扣掉「${d.name}」（${name}）用掉的豆子：`,
+    ...out,
+    empty.length ? `扣到 0 的色號：${empty.join('、')}` : '',
+    plan.skipped.length ? `未擁有、沒有扣：${plan.skipped.map((r) => r.code).join('、')}` : '',
   ].filter(Boolean).join('\n');
 }
 
@@ -193,6 +212,15 @@ export function buildMcpServer(store: DesignStore, opts: { vision?: Vision } & P
     const inv = store.setInventory(items);
     const owned = Object.entries(inv).filter(([, s]) => s.owned);
     return ok(`已更新。目前擁有 ${owned.length} 色，共 ${owned.reduce((a, [, s]) => a + s.count, 0)} 顆`);
+  }));
+
+  server.registerTool('deduct_inventory', {
+    description: '使用者做完作品後扣庫存：擁有的顏色扣掉這個版本的用量（最少扣到 0），未擁有的色號不動。不能復原，呼叫前先跟使用者確認',
+    inputSchema: { designId, variant },
+  }, wrap(({ designId: id, variant: v }) => {
+    const d = store.get(id);
+    const vid = getVariant(d, v).id;
+    return ok(deductionText(d, vid, store.deductInventory(d, vid)));
   }));
 
   server.registerTool('snapshot', { description: '儲存快照（大改之前建議先存）', inputSchema: { designId, name: z.string() } },

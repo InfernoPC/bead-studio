@@ -74,3 +74,24 @@ export function stockCapacity(inv: Inventory): Map<string, number> {
   for (const [code, s] of Object.entries(inv)) if (s.owned) m.set(code, s.count);
   return m;
 }
+
+export type Deduction = { code: string; used: number; before: number; after: number };
+export type DeductionPlan = { deducted: Deduction[]; skipped: { code: string; used: number }[] };
+
+const codeOrder = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
+
+/** 做完作品後要從庫存扣掉多少：擁有的顏色扣掉用量（最少扣到 0）；未擁有的色號不受影響，另外列出。
+ *  兩邊都依用量由多到少（同量依色號）。伺服器的 deduct_inventory 與 UI 的確認對話框共用這份計算 */
+export function planDeduction(cells: (string | null)[], inv: Inventory): DeductionPlan {
+  const used = new Map<string, number>();
+  for (const c of cells) if (c) used.set(c, (used.get(c) ?? 0) + 1);
+  const order = <T extends { code: string; used: number }>(xs: T[]) =>
+    xs.sort((a, b) => b.used - a.used || codeOrder.compare(a.code, b.code));
+  const deducted: Deduction[] = [], skipped: DeductionPlan['skipped'] = [];
+  for (const [code, n] of used) {
+    const s = inv[code];
+    if (s?.owned) deducted.push({ code, used: n, before: s.count, after: Math.max(0, s.count - n) });
+    else skipped.push({ code, used: n });
+  }
+  return { deducted: order(deducted), skipped: order(skipped) };
+}

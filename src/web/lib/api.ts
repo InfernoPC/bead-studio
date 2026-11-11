@@ -32,10 +32,11 @@ export async function getState(): Promise<StateSnapshot> {
   return res.json();
 }
 
-export async function callTool(name: string, args: Record<string, unknown>): Promise<ToolResult> {
+/** keepalive：頁面關閉或切走時送出的最後一批修改（瀏覽器在頁面卸載後仍會送完） */
+export async function callTool(name: string, args: Record<string, unknown>, o: { keepalive?: boolean } = {}): Promise<ToolResult> {
   try {
     const res = await fetch(`/api/tools/${encodeURIComponent(name)}`, {
-      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(args),
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(args), keepalive: o.keepalive,
     });
     if (!res.ok) return { ok: false, text: await failure(res), images: [] };
     return await res.json();

@@ -95,6 +95,46 @@ describe('DesignStore', () => {
       A1: { owned: true, count: 80 }, H1: { owned: true, count: 0 },
     });
   });
+  it('deductInventory subtracts the active variant usage from owned colors, never below zero', () => {
+    const s = mkStore();
+    s.create('x', board);
+    s.update(undefined, (d) => applyOps(d, [
+      { op: 'rect', x: 0, y: 0, w: 3, h: 1, color: 'A1' }, { op: 'rect', x: 0, y: 1, w: 4, h: 1, color: 'B1' },
+      { op: 'rect', x: 0, y: 2, w: 2, h: 1, color: 'C1' }, { op: 'rect', x: 0, y: 3, w: 1, h: 1, color: 'T1' },
+    ], s.ctx()).design);
+    s.setInventory([
+      { code: 'A1', owned: true, count: 10 }, { code: 'B1', owned: true, count: 2 },
+      { code: 'C1', owned: false, count: 50 }, { code: 'H1', owned: true, count: 7 },
+    ]);
+    let metas = 0;
+    s.on('meta', () => metas++);
+    const plan = s.deductInventory(s.get());
+    expect(metas).toBe(1);
+    expect(s.inventory.A1).toEqual({ owned: true, count: 7 });
+    expect(s.inventory.B1).toEqual({ owned: true, count: 0 }); // 不會變負數
+    expect(s.inventory.C1).toEqual({ owned: false, count: 50 }); // 未擁有的色號不受影響
+    expect(s.inventory.T1).toBeUndefined(); // 透明豆一樣：沒有登記擁有就不動
+    expect(s.inventory.H1).toEqual({ owned: true, count: 7 }); // 沒用到的不動
+    expect(plan.deducted.map((r) => r.code)).toEqual(['B1', 'A1']);
+    expect(plan.skipped.map((r) => r.code)).toEqual(['C1', 'T1']);
+    expect(JSON.parse(readFileSync(join(dir, 'data/inventory.json'), 'utf8')).A1).toEqual({ owned: true, count: 7 });
+  });
+  it('deductInventory uses the given variant and does not touch design history', () => {
+    const s = mkStore();
+    s.create('x', board);
+    s.update(undefined, (d) => applyOps(d, [{ op: 'rect', x: 0, y: 0, w: 2, h: 1, color: 'A1' }], s.ctx()).design);
+    const d = s.get();
+    s.update(undefined, (x) => ({ ...x, variants: [...x.variants, { ...structuredClone(x.variants[0]), id: 'v2', name: '二', cells: x.variants[0].cells.map((c) => (c ? 'A2' : c)) }] }));
+    s.setInventory([{ code: 'A1', owned: true, count: 5 }, { code: 'A2', owned: true, count: 5 }]);
+    const depth = s.historyDepth(d.id);
+    const version = s.get().version;
+    s.deductInventory(s.get(), 'v2');
+    expect(s.inventory.A1.count).toBe(5);
+    expect(s.inventory.A2.count).toBe(3);
+    expect(s.historyDepth(d.id)).toEqual(depth);
+    expect(s.get().version).toBe(version);
+    expect(() => s.deductInventory(s.get(), 'v9')).toThrow(/找不到配色版本 v9/);
+  });
   it('rejects unknown colors in setInventory', () => {
     expect(() => mkStore().setInventory([{ code: 'ZZ1', owned: true }])).toThrow(/未知色號 ZZ1/);
   });

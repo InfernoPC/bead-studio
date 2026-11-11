@@ -46,7 +46,7 @@ describe('MCP tools', () => {
     const { client } = await connect();
     const names = (await client.listTools()).tools.map((t) => t.name).sort();
     expect(names).toEqual([
-      'apply_ops', 'calibrate_color', 'create_variant', 'describe_design', 'export_png', 'get_design', 'get_palette',
+      'apply_ops', 'calibrate_color', 'create_variant', 'deduct_inventory', 'describe_design', 'export_png', 'get_design', 'get_palette',
       'import_image', 'list_designs', 'new_design', 'open_design', 'redo', 'render_preview',
       'restore_snapshot', 'run_checks', 'select_variant', 'set_board', 'set_inventory',
       'set_shape_lock', 'set_variant_mode', 'snapshot', 'undo',
@@ -113,6 +113,26 @@ describe('MCP tools', () => {
     expect(store.get().activeVariant).toBe('v2');
     const mode = await text('set_variant_mode', { variant: 'v2', paletteMode: 'owned' });
     expect(mode.ok).toBe(true);
+  });
+
+  it('deduct_inventory reports per-color deductions and colors that ran out', async () => {
+    const { text } = await connect();
+    await text('new_design', NEW);
+    await text('apply_ops', { ops: [
+      { op: 'rect', x: 1, y: 1, w: 3, h: 1, color: 'A1' }, { op: 'rect', x: 1, y: 2, w: 2, h: 1, color: 'B1' },
+      { op: 'rect', x: 1, y: 3, w: 1, h: 1, color: 'C1' },
+    ] });
+    await text('set_inventory', { items: [{ code: 'A1', owned: true, count: 10 }, { code: 'B1', owned: true, count: 1 }] });
+    const r = await text('deduct_inventory');
+    expect(r.ok).toBe(true);
+    expect(r.text).toMatch(/A1 扣 3 顆（10 → 7）/);
+    expect(r.text).toMatch(/B1 扣 1 顆（1 → 0），不夠 1 顆/);
+    expect(r.text).toMatch(/扣到 0 的色號：B1/);
+    expect(r.text).toMatch(/未擁有、沒有扣：C1/);
+    expect(store.inventory.A1.count).toBe(7);
+    const none = await text('deduct_inventory', { variant: 'v9' });
+    expect(none.ok).toBe(false);
+    expect(none.text).toMatch(/no_variant/);
   });
 
   it('get_palette lists colors with stock for the given mode', async () => {

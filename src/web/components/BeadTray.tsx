@@ -10,7 +10,7 @@ import { traySlots, type TrayFilter, type TraySlot } from '../lib/trayModel';
 /* ---------- 豆子繪製（與編輯區同一支 drawBeadFlat；顏色永遠來自色票） ---------- */
 
 /** 畫豆子要用的主題值：暗色描邊（與編輯區相同）、落影、透明豆的顯示色 */
-type BeadInk = { rim?: string; shadow: string; clear: string };
+export type BeadInk = { rim?: string; shadow: string; clear: string };
 
 export function useBeadInk(): BeadInk {
   const theme = useTheme();
@@ -73,10 +73,11 @@ export function BeadDot({ hex, size, transparent = false, ink }: { hex: string; 
   return <canvas ref={ref} className="bead-dot" style={{ width: size, height: size }} aria-hidden="true" />;
 }
 
-const PILE_W = 40, PILE_H = 31, PILE_R = 8.6;
+export const PILE_W = 40, PILE_H = 31;
+const PILE_R = 8.6;
 
 /** 格子裡的豆子堆（level ≥ 1 才有 canvas；空格由 Compartment 放同尺寸的空位） */
-function Pile({ slot, ink }: { slot: TraySlot; ink: BeadInk }) {
+export function Pile({ slot, ink }: { slot: TraySlot; ink: BeadInk }) {
   const ref = useCanvas(PILE_W, PILE_H, (ctx) => {
     PILES[slot.level].forEach((p, k) => {
       const j = jitter(slot.code, k);
