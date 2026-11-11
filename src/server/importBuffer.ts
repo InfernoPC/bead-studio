@@ -5,8 +5,12 @@ import { imageToCells } from '../core/importImage';
 import { getVariant, maskFromCells } from '../core/model';
 import { syncOtherVariants } from '../core/ops';
 import { allowedCodes, stockCapacity } from '../core/palette';
+import { readImageSize } from './imageSize';
 import { extractDesign, hasDesignMeta } from './pngmeta';
 import type { DesignStore } from './store';
+
+/** 解碼前先擋掉的像素上限（約 7000×7000）：每個像素解碼後要 4 bytes */
+export const MAX_IMAGE_PIXELS = 50_000_000;
 
 export async function importImageBuffer(
   store: DesignStore,
@@ -21,6 +25,12 @@ export async function importImageBuffer(
     return `已從 PNG metadata 還原作品 ${d.id}「${d.name}」`;
   }
   const notice = hasDesignMeta(buf) ? '⚠ PNG 內的 bead-studio metadata 無效或含有目前色表沒有的色號，已改用一般圖片轉換\n' : '';
+  // 解碼前先看檔頭宣告的尺寸：小檔案也可能宣告極大的尺寸，解碼時吃光記憶體
+  const size = readImageSize(buf);
+  if (!size) throw new OpError('bad_image', '無法辨識的圖片格式，請改用 PNG、JPEG、GIF、WebP 或 BMP');
+  if (size.width * size.height > MAX_IMAGE_PIXELS) {
+    throw new OpError('image_too_large', `圖片太大（${size.width}×${size.height}），請先縮小到 ${MAX_IMAGE_PIXELS / 1e6} 百萬像素以內（例如 7000×7000）再導入`);
+  }
   const img = await loadImage(buf);
   const c = createCanvas(img.width, img.height);
   const ctx = c.getContext('2d');
