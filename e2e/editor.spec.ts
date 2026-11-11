@@ -90,6 +90,40 @@ test('a server update in the middle of a stroke keeps the stroke preview and bot
   for (let i = 3; i <= 9; i++) expect(s.cells[5 * 30 + i]).toBe('F5');
 });
 
+test('a variant switch in the middle of a stroke does not move the stroke to the other variant', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: '畫筆' })).toBeEnabled();
+  await tool(page, 'new_design', { name: '中途換版本', widthMm: 80, heightMm: 80, bead: 2.6, margin: 2 });
+  await expect(page.getByTestId('design-name')).toHaveText('中途換版本');
+  // 先在兩個版本都鋪一排 H7：畫筆蓋過去只改畫到的那個版本（換色不會同步到其他版本）
+  await tool(page, 'apply_ops', { ops: [{ op: 'paste', x: 3, y: 5, rows: ['7a'], legend: { a: 'H7' } }] });
+  const made = await tool(page, 'create_variant', { name: '另一版', paletteMode: 'all' });
+  const other = /配色版本 (\S+)「/.exec(made.text)![1];
+  await tool(page, 'select_variant', { variant: 'v1' });
+  await pickColorWithEyedropper(page, 'F5');
+  await page.keyboard.press('b');
+  const h7 = await pixel(page, 6, 5);
+
+  const a = await cellCenter(page, 3, 5), b = await cellCenter(page, 6, 5), c = await cellCenter(page, 9, 5);
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 2 });
+  await expect.poll(() => pixel(page, 6, 5)).not.toEqual(h7);
+
+  // 拖曳途中 AI 切換到另一個配色版本
+  await tool(page, 'select_variant', { variant: other });
+  await expect(page.getByRole('tab', { name: '另一版' })).toHaveAttribute('aria-selected', 'true');
+  await page.mouse.move(c.x, c.y, { steps: 2 });
+  await page.mouse.up();
+
+  const rowOf = async (id: string) => {
+    const d = (await (await page.request.get('/api/state')).json()).current;
+    return (d.variants.find((x: { id: string }) => x.id === id).cells as (string | null)[]).slice(5 * 30 + 3, 5 * 30 + 10);
+  };
+  await expect.poll(() => rowOf('v1')).toEqual(Array(7).fill('F5'));
+  expect(await rowOf(other)).toEqual(Array(7).fill('H7'));
+});
+
 test('consecutive wheel events compound around the cursor', async ({ page }) => {
   await page.goto('/');
   const zoom = page.getByLabel('縮放比例');

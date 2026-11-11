@@ -28,8 +28,9 @@ function isControl(t: EventTarget | null): boolean {
 
 type Gesture =
   | { kind: 'pan'; x: number; y: number; ox: number; oy: number }
-  | { kind: 'paint'; base: Design; color: string | null; cells: Cell[]; seen: Set<number>; last: Cell | null }
-  | { kind: 'line'; base: Design; color: string; from: Cell; to: Cell };
+  // variant：這一筆開始時的配色版本；拖曳途中切換版本（例如 AI 切換）也不會改畫到別的版本
+  | { kind: 'paint'; base: Design; variant: string; color: string | null; cells: Cell[]; seen: Set<number>; last: Cell | null }
+  | { kind: 'line'; base: Design; variant: string; color: string; from: Cell; to: Cell };
 
 /** 平面編輯區：繪製、縮放平移、繪圖工具。所有修改都透過 callTool 送到伺服器。 */
 export function Editor({ snapshot, design, editor, dispatch, editable, onNotice }: Props) {
@@ -166,9 +167,11 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
     const cx = vw.pad + h[0] * cs + cs / 2, cy = vw.pad + h[1] * cs + cs / 2;
     const dataX = ed.mirror ? d.cols - 1 - h[0] : h[0];
     const blocked = isForbidden(d, ed.tool, dataX, h[1]);
-    if (ed.tool === 'pen' && ed.color && !blocked) {
+    // 色表裡沒有目前顏色（例如色表剛換掉）就不畫預覽豆
+    const ghost = ed.tool === 'pen' && ed.color ? opCtx.palette.get(ed.color)?.displayHex : undefined;
+    if (ghost && !blocked) {
       ctx.globalAlpha = 0.6;
-      drawBeadFlat(ctx, cx, cy, cs * 0.47, opCtx.palette.get(ed.color)?.displayHex ?? '#FF00FF', tokens.ui.rim);
+      drawBeadFlat(ctx, cx, cy, cs * 0.47, ghost, tokens.ui.rim);
       ctx.globalAlpha = 1;
     }
     ctx.lineWidth = Math.max(1, cs * 0.08);
@@ -191,16 +194,17 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
   useEffect(() => { drawOverlay(); }, [editor.tool, editor.color, editable, drawOverlay]);
 
   /* ---------- 送出指令 ---------- */
-  const send = useCallback(async (base: Design, ops: Op[]) => {
-    const res = await callTool('apply_ops', { designId: base.id, ops });
+  /** 明確指定配色版本送出，伺服器上的目前版本在這之間被切換也不會改畫到別的版本 */
+  const send = useCallback(async (base: Design, ops: Op[], variant = base.activeVariant) => {
+    const res = await callTool('apply_ops', { designId: base.id, variant, ops });
     // 送出有結果了：還沒等到回聲的自己的格子，過一陣子就不再當成自己的
     if (!gesture.current) bounce.settle(performance.now());
     if (res.ok) onNotice(null);
     else { dispatch({ type: 'clearPreview' }); onNotice(res.text); }
   }, [dispatch, onNotice]);
 
-  const preview = useCallback((base: Design, ops: Op[]) => {
-    const next = previewOps(base, ops, opCtx);
+  const preview = useCallback((base: Design, ops: Op[], variant = base.activeVariant) => {
+    const next = previewOps(base, ops, opCtx, variant);
     if (next instanceof Error) dispatch({ type: 'clearPreview' });
     else dispatch({ type: 'preview', pending: { baseVersion: base.version, design: next } });
   }, [dispatch, opCtx]);
@@ -235,9 +239,9 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
   };
 
   const previewGesture = (g: Extract<Gesture, { kind: 'paint' | 'line' }>) => {
-    if (g.kind === 'line') { preview(g.base, [lineOp(g.from, g.to, g.color)]); return; }
+    if (g.kind === 'line') { preview(g.base, [lineOp(g.from, g.to, g.color)], g.variant); return; }
     const op = strokeToPaste(g.cells, g.color);
-    if (op) preview(g.base, [op]);
+    if (op) preview(g.base, [op], g.variant);
     else dispatch({ type: 'clearPreview' });
   };
 
@@ -277,7 +281,7 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
       case 'pen': case 'eraser': {
         if (ed.tool === 'pen' && !ed.color) { needColor(); return; }
         if (isForbidden(base, ed.tool, x, y)) return;
-        const g: Gesture = { kind: 'paint', base, color: ed.tool === 'pen' ? ed.color : null, cells: [], seen: new Set(), last: null };
+        const g: Gesture = { kind: 'paint', base, variant: base.activeVariant, color: ed.tool === 'pen' ? ed.color : null, cells: [], seen: new Set(), last: null };
         gesture.current = g;
         e.currentTarget.setPointerCapture(e.pointerId);
         addToStroke(g, c);
@@ -285,7 +289,7 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
       }
       case 'line': {
         if (!ed.color) { needColor(); return; }
-        gesture.current = { kind: 'line', base, color: ed.color, from: c, to: c };
+        gesture.current = { kind: 'line', base, variant: base.activeVariant, color: ed.color, from: c, to: c };
         e.currentTarget.setPointerCapture(e.pointerId);
         preview(base, [lineOp(c, c, ed.color)]);
         return;
@@ -350,10 +354,10 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
     if (!commit) { dispatch({ type: 'clearPreview' }); bounce.settle(performance.now()); return; }
     if (g.kind === 'paint') {
       const op = strokeToPaste(g.cells, g.color);
-      if (op) void send(g.base, [op]);
+      if (op) void send(g.base, [op], g.variant);
       else dispatch({ type: 'clearPreview' });
     } else {
-      void send(g.base, [lineOp(g.from, g.to, g.color)]);
+      void send(g.base, [lineOp(g.from, g.to, g.color)], g.variant);
     }
   };
 
