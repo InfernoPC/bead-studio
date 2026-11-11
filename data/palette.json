@@ -1,157 +1,157 @@
 [
   {
     "code": "A1",
-    "name": "黄橙1",
+    "name": "黃橙1",
     "series": "A",
     "hex": "#FAF4C8"
   },
   {
     "code": "A2",
-    "name": "黄橙2",
+    "name": "黃橙2",
     "series": "A",
     "hex": "#FFFFD5"
   },
   {
     "code": "A3",
-    "name": "黄橙3",
+    "name": "黃橙3",
     "series": "A",
     "hex": "#FEFF8B"
   },
   {
     "code": "A4",
-    "name": "黄橙4",
+    "name": "黃橙4",
     "series": "A",
     "hex": "#FBED56"
   },
   {
     "code": "A5",
-    "name": "黄橙5",
+    "name": "黃橙5",
     "series": "A",
     "hex": "#F4D738"
   },
   {
     "code": "A6",
-    "name": "黄橙6",
+    "name": "黃橙6",
     "series": "A",
     "hex": "#FEAC4C"
   },
   {
     "code": "A7",
-    "name": "黄橙7",
+    "name": "黃橙7",
     "series": "A",
     "hex": "#FE8B4C"
   },
   {
     "code": "A8",
-    "name": "黄橙8",
+    "name": "黃橙8",
     "series": "A",
     "hex": "#FFDA45"
   },
   {
     "code": "A9",
-    "name": "黄橙9",
+    "name": "黃橙9",
     "series": "A",
     "hex": "#FF995B"
   },
   {
     "code": "A10",
-    "name": "黄橙10",
+    "name": "黃橙10",
     "series": "A",
     "hex": "#F77C31"
   },
   {
     "code": "A11",
-    "name": "黄橙11",
+    "name": "黃橙11",
     "series": "A",
     "hex": "#FFDD99"
   },
   {
     "code": "A12",
-    "name": "黄橙12",
+    "name": "黃橙12",
     "series": "A",
     "hex": "#FE9F72"
   },
   {
     "code": "A13",
-    "name": "黄橙13",
+    "name": "黃橙13",
     "series": "A",
     "hex": "#FFC365"
   },
   {
     "code": "A14",
-    "name": "黄橙14",
+    "name": "黃橙14",
     "series": "A",
     "hex": "#FD543D"
   },
   {
     "code": "A15",
-    "name": "黄橙15",
+    "name": "黃橙15",
     "series": "A",
     "hex": "#FFF365"
   },
   {
     "code": "A16",
-    "name": "黄橙16",
+    "name": "黃橙16",
     "series": "A",
     "hex": "#FFFF9F"
   },
   {
     "code": "A17",
-    "name": "黄橙17",
+    "name": "黃橙17",
     "series": "A",
     "hex": "#FFE36E"
   },
   {
     "code": "A18",
-    "name": "黄橙18",
+    "name": "黃橙18",
     "series": "A",
     "hex": "#FEBE7D"
   },
   {
     "code": "A19",
-    "name": "黄橙19",
+    "name": "黃橙19",
     "series": "A",
     "hex": "#FD7C72"
   },
   {
     "code": "A20",
-    "name": "黄橙20",
+    "name": "黃橙20",
     "series": "A",
     "hex": "#FFD568"
   },
   {
     "code": "A21",
-    "name": "黄橙21",
+    "name": "黃橙21",
     "series": "A",
     "hex": "#FFE395"
   },
   {
     "code": "A22",
-    "name": "黄橙22",
+    "name": "黃橙22",
     "series": "A",
     "hex": "#F4F57D"
   },
   {
     "code": "A23",
-    "name": "黄橙23",
+    "name": "黃橙23",
     "series": "A",
     "hex": "#E6C9B7"
   },
   {
     "code": "A24",
-    "name": "黄橙24",
+    "name": "黃橙24",
     "series": "A",
     "hex": "#F7F8A2"
   },
   {
     "code": "A25",
-    "name": "黄橙25",
+    "name": "黃橙25",
     "series": "A",
     "hex": "#FFD67D"
   },
   {
     "code": "A26",
-    "name": "黄橙26",
+    "name": "黃橙26",
     "series": "A",
     "hex": "#FFC830"
   },
@@ -1329,7 +1329,7 @@
     "code": "T1",
     "name": "透明",
     "series": "T",
-    "hex": "#FFFFFF",
+    "hex": "#DDEBEE",
     "transparent": true
   }
 ]
