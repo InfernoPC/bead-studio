@@ -1,4 +1,4 @@
-import { allocate } from './allocate';
+import { matchCodes } from './allocate';
 import { cloneDesign, getVariant, type Design } from './model';
 import type { OpCtx } from './ops';
 import { allowedCodes, stockCapacity, type PaletteMode } from './palette';
@@ -8,10 +8,8 @@ export function recolorVariant(d: Design, variantId: string, ctx: OpCtx, opts: {
   const v = getVariant(next, variantId);
   const src = getVariant(next, opts.from ?? variantId);
   const mode = opts.mode ?? v.paletteMode;
-  // transparent colors are never chosen by automatic matching
-  const allowed = ctx.palette.entries(allowedCodes(ctx.palette, ctx.inventory, mode)).filter((e) => !e.transparent);
-  const targets = src.cells.flatMap((c, i) => (c === null ? [] : [{ index: i, lab: ctx.palette.get(c)!.lab }]));
-  const m = allocate(targets, allowed, mode === 'stock' ? stockCapacity(ctx.inventory) : undefined);
+  const sources = src.cells.flatMap((c, i) => (c === null ? [] : [{ index: i, code: c }]));
+  const m = matchCodes(sources, ctx.palette, allowedCodes(ctx.palette, ctx.inventory, mode), mode === 'stock' ? stockCapacity(ctx.inventory) : undefined);
   v.cells = src.cells.map((c, i) => (c === null ? null : m.get(i)!));
   v.paletteMode = mode;
   return next;

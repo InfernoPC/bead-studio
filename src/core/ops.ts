@@ -1,4 +1,4 @@
-import { allocate } from './allocate';
+import { matchCodes } from './allocate';
 import { OpError, type Pt } from './errors';
 import { gradient, outline, shade } from './effects';
 import { cloneDesign, countCodes, getVariant, maskFromCells, type Design, type Variant } from './model';
@@ -104,15 +104,14 @@ export function syncOtherVariants(d: Design, from: Variant, ctx: OpCtx): void {
       else if (o.cells[i] === null) added.push(i);
     });
     if (added.length === 0) continue;
-    // transparent colors are never chosen by automatic matching
-    const allowed = ctx.palette.entries(allowedCodes(ctx.palette, ctx.inventory, o.paletteMode)).filter((e) => !e.transparent);
     let capacity: Map<string, number> | undefined;
     if (o.paletteMode === 'stock') {
       capacity = stockCapacity(ctx.inventory);
       for (const [code, n] of Object.entries(countCodes(o.cells))) capacity.set(code, (capacity.get(code) ?? 0) - n);
     }
     try {
-      const m = allocate(added.map((i) => ({ index: i, lab: ctx.palette.get(from.cells[i]!)!.lab })), allowed, capacity);
+      const allowed = allowedCodes(ctx.palette, ctx.inventory, o.paletteMode);
+      const m = matchCodes(added.map((i) => ({ index: i, code: from.cells[i]! })), ctx.palette, allowed, capacity);
       m.forEach((code, i) => { o.cells[i] = code; });
     } catch (e) {
       if (e instanceof OpError) throw new OpError(e.code, `版本「${o.name}」無法補上新增的豆子：${e.message}`);

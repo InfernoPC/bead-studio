@@ -162,13 +162,26 @@ describe('applyOps', () => {
     expect(d0).toEqual(copy);
   });
 
-  it('automatic matching never picks transparent colors', () => {
-    const d0 = twoVariants('all');
-    const { design } = applyOps(d0, [{ op: 'rect', x: 0, y: 0, w: 1, h: 1, color: 'T1' }], ctxAll);
+  it('new clear beads stay clear in other variants when allowed', () => {
+    const d0 = twoVariants('owned');
+    const ctx = { palette, inventory: { T1: { owned: true, count: 9 }, H1: { owned: true, count: 9 }, A1: { owned: true, count: 9 } } };
+    const { design } = applyOps(d0, [{ op: 'rect', x: 0, y: 0, w: 1, h: 1, color: 'T1' }], ctx);
     expect(cell(design, 0, 0, 'v1')).toBe('T1');
-    const v2 = cell(design, 0, 0, 'v2');
-    expect(v2).not.toBeNull();
-    expect(v2).not.toBe('T1');
+    expect(cell(design, 0, 0, 'v2')).toBe('T1');
+  });
+
+  it('new opaque beads never become transparent in other variants', () => {
+    const d0 = twoVariants('owned');
+    const ctx = { palette, inventory: { T1: { owned: true, count: 9 }, A1: { owned: true, count: 9 } } };
+    const { design } = applyOps(d0, [{ op: 'rect', x: 0, y: 0, w: 1, h: 1, color: 'H1' }], ctx);
+    expect(cell(design, 0, 0, 'v2')).toBe('A1');
+  });
+
+  it('new clear beads fall back to an opaque color when no transparent color is allowed', () => {
+    const d0 = twoVariants('owned');
+    const ctx = { palette, inventory: { H1: { owned: true, count: 9 }, H2: { owned: true, count: 9 } } };
+    const { design } = applyOps(d0, [{ op: 'rect', x: 0, y: 0, w: 1, h: 1, color: 'T1' }], ctx);
+    expect(cell(design, 0, 0, 'v2')).toBe('H1');
   });
 
   it('rejects unbounded geometry with bad_op', () => {

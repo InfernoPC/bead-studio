@@ -1,6 +1,6 @@
 import { deltaE00, type Lab } from './color';
 import { OpError } from './errors';
-import type { PaletteEntry } from './palette';
+import type { Palette, PaletteEntry } from './palette';
 
 export type Target = { index: number; lab: Lab };
 
@@ -37,4 +37,33 @@ export function allocate(targets: Target[], allowed: PaletteEntry[], capacity?: 
     }
   }
   return new Map(targets.map((t, k) => [t.index, allowed[assign[k]].code]));
+}
+
+/**
+ * 把來源色號對應到目標色彩範圍。不透明的來源只會配到不透明色；
+ * 已經是透明的來源維持透明（同色號優先，其次其他可用透明色），都不行才退回最接近的不透明色。
+ * capacity（stock 模式）會一併扣掉保留下來的透明豆。
+ */
+export function matchCodes(
+  sources: { index: number; code: string }[], palette: Palette, allowed: Set<string>, capacity?: Map<string, number>,
+): Map<number, string> {
+  const entries = palette.entries(allowed);
+  const opaque = entries.filter((e) => !e.transparent);
+  const clear = entries.filter((e) => e.transparent);
+  const cap = capacity ? new Map(capacity) : undefined;
+  const has = (code: string) => !cap || (cap.get(code) ?? 0) > 0;
+  const take = (code: string) => { if (cap) cap.set(code, (cap.get(code) ?? 0) - 1); };
+  const out = new Map<number, string>();
+  const rest: Target[] = [];
+  for (const s of sources) {
+    const e = palette.get(s.code)!;
+    if (e.transparent) {
+      const pick = allowed.has(s.code) && has(s.code) ? s.code
+        : clear.filter((c) => has(c.code)).sort((a, b) => deltaE00(e.lab, a.lab) - deltaE00(e.lab, b.lab))[0]?.code;
+      if (pick) { take(pick); out.set(s.index, pick); continue; }
+    }
+    rest.push({ index: s.index, lab: e.lab });
+  }
+  for (const [i, code] of allocate(rest, opaque, cap)) out.set(i, code);
+  return out;
 }
