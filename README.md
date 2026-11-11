@@ -11,6 +11,18 @@ pnpm install
 pnpm start          # http://localhost:5174
 ```
 
+## 網頁介面
+
+![豆豆工作室網頁介面](docs/screenshot.png)
+
+- 開發：`pnpm dev`（同時啟動伺服器與 Vite），開 http://localhost:5173。
+- 正式使用：`pnpm build:web && pnpm start`，或用下面的 Docker，開 http://localhost:5174。
+- 編輯區有畫筆、橡皮擦、油漆桶、吸管、直線、框選等工具；右側是色票、用量與檢查結果。亮色與暗色模式可從右上角切換，豆子的顏色不會跟著變。
+- AI 透過 MCP 改的設計會即時出現在網頁上（不用重新整理），被改到的豆子會跳一下。網頁上的每個修改也走同一套工具，AI 馬上讀得到。
+- 右上角的「連接 AI」會顯示要貼進 Claude Code 的指令。
+- 把圖片（含 bead-studio metadata 的 PNG 或一般圖片）拖進網頁就能匯入。
+- 庫存頁（色票面板下方的「管理庫存」）可以勾選擁有的顏色、填顆數（也能秤重換算顆數），並校正各色的顯示色。用量面板的「做完了，扣庫存」會在你拼完作品後，依用量扣掉庫存。
+
 ## 用 Docker 執行
 
 ```bash
