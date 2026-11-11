@@ -4,6 +4,7 @@ import type { Op } from '../../core/opSchema';
 import { drawBeadFlat, flatLayout } from '../../core/render/draw';
 import { drawBoard, readTokens } from '../lib/boardRender';
 import { callTool, type StateSnapshot } from '../lib/api';
+import { BounceTracker } from '../lib/bounce';
 import { displayDesign, makeCtx, previewOps } from '../lib/clientCore';
 import type { EditorAction, EditorState } from '../lib/editorState';
 import { interpolate, strokeToPaste, type Cell } from '../lib/stroke';
@@ -105,12 +106,35 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
     if (g && g.kind !== 'pan' && rebase(g)) previewGesture(g);
   }, [design]);
 
+  /* ---------- 豆子跳動：畫過去立刻跳，伺服器（AI）更新只有改變的格子以波浪跳 ---------- */
+  const [bounce] = useState(() => new BounceTracker());
+  const reducedMotion = useRef(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const sync = () => { reducedMotion.current = mq.matches; };
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+  useEffect(() => {
+    const g = gesture.current;
+    const local = !!editor.pending && shown === editor.pending.design;
+    const source = !local ? 'server' : g && g.kind !== 'pan' ? 'stroke' : 'local';
+    bounce.update(
+      { key: `${shown.id}:${shown.activeVariant}:${shown.cols}x${shown.rows}`, cols: shown.cols, cells: getVariant(shown).cells, mirror: live.current.editor.mirror },
+      source, performance.now(), reducedMotion.current,
+    );
+  }, [shown]);
+
   /* ---------- 繪製 ---------- */
   const frame = useRef(0);
   const drawNow = useCallback(() => {
+    // 直接呼叫時取消已排定的影格，避免兩個重繪迴圈並行
+    cancelAnimationFrame(frame.current);
     frame.current = 0;
     const c = boardRef.current, { view: vw, size: sz, shown: d, editor: ed } = live.current;
     if (!c || !sz.w) return;
+    const cellAnim = bounce.frame(performance.now(), getVariant(d).cells);
     const ctx = c.getContext('2d')!;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, c.width, c.height);
@@ -118,9 +142,11 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
     ctx.setTransform(k, 0, 0, k, sz.dpr * vw.offsetX, sz.dpr * vw.offsetY);
     drawBoard(ctx, d, {
       palette: opCtx.palette, cell: vw.cell, mirror: ed.mirror, tokens,
-      highlightCode: ed.highlightCode, highlightCells: ed.highlightCells,
+      highlightCode: ed.highlightCode, highlightCells: ed.highlightCells, cellAnim,
     });
-  }, [opCtx, tokens]);
+    // 還有格子在跳：下一個影格繼續畫，全部結束就停
+    if (bounce.active) frame.current = requestAnimationFrame(drawNow);
+  }, [opCtx, tokens, bounce]);
   /** 下一個動畫影格重畫（同一影格內多次呼叫只畫一次） */
   const requestDraw = useCallback(() => {
     if (!frame.current) frame.current = requestAnimationFrame(drawNow);
@@ -168,6 +194,8 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
   /* ---------- 送出指令 ---------- */
   const send = useCallback(async (base: Design, ops: Op[]) => {
     const res = await callTool('apply_ops', { designId: base.id, ops });
+    // 送出有結果了：還沒等到回聲的自己的格子，過一陣子就不再當成自己的
+    if (!gesture.current) bounce.settle(performance.now());
     if (res.ok) onNotice(null);
     else { dispatch({ type: 'clearPreview' }); onNotice(res.text); }
   }, [dispatch, onNotice]);
@@ -322,7 +350,7 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
     gesture.current = null;
     if (!g) return;
     if (g.kind === 'pan') { setPanning(false); drawOverlay(); return; }
-    if (!commit) { dispatch({ type: 'clearPreview' }); return; }
+    if (!commit) { dispatch({ type: 'clearPreview' }); bounce.settle(performance.now()); return; }
     if (g.kind === 'paint') {
       const op = strokeToPaste(g.cells, g.color);
       if (op) void send(g.base, [op]);

@@ -31,7 +31,11 @@ export function drawBeadFlat(ctx: C2D, cx: number, cy: number, R: number, hex: s
   ctx.beginPath(); ctx.arc(cx, cy, R * 0.36, 0, Math.PI * 2); ctx.fill();
 }
 
-export type FlatOpts = { cell: number; pegs?: boolean; codes?: boolean; rulers?: boolean; guides?: boolean; margin?: boolean; markers?: boolean };
+export type FlatOpts = {
+  cell: number; pegs?: boolean; codes?: boolean; rulers?: boolean; guides?: boolean; margin?: boolean; markers?: boolean;
+  /** 個別豆子的縮放（以格子中心；k = j * cols + i）；編輯區的跳動動畫用，≤0 時畫成空格 */
+  beadScale?: (k: number) => number;
+};
 
 export function flatLayout(d: Design, o: FlatOpts) {
   const pad = o.rulers ? 18 : 6;
@@ -52,12 +56,13 @@ export function drawFlat(ctx: C2D, d: Design, v: Variant, p: Palette, o: FlatOpt
   for (let j = 0; j < d.rows; j++) for (let i = 0; i < d.cols; i++) {
     const cx = pad + i * cs + cs / 2, cy = pad + j * cs + cs / 2;
     const code = v.cells[j * d.cols + i];
-    if (!code) {
+    const scale = code && o.beadScale ? o.beadScale(j * d.cols + i) : 1;
+    if (!code || scale <= 0) {
       if (o.pegs !== false) { ctx.fillStyle = UI.peg; ctx.beginPath(); ctx.arc(cx, cy, Math.max(1, cs * 0.1), 0, Math.PI * 2); ctx.fill(); }
       continue;
     }
     const hex = p.get(code)?.displayHex ?? '#FF00FF';
-    drawBeadFlat(ctx, cx, cy, cs * 0.47, hex);
+    drawBeadFlat(ctx, cx, cy, cs * 0.47 * scale, hex);
     if (o.codes) {
       ctx.fillStyle = luminance(hex) > 0.55 ? '#3A2E25' : '#FFFFFF';
       ctx.font = `bold ${Math.round(cs * 0.34)}px sans-serif`;

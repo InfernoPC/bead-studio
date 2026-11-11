@@ -1,7 +1,8 @@
 // 編輯區的純繪製：core drawFlat 加上編輯用的疊加層（留邊外紅框、鏡像、單色／檢查器高亮）
 import { getVariant, type Design } from '../../core/model';
 import type { Palette } from '../../core/palette';
-import { drawBeadFlat, drawFlat, flatLayout, UI } from '../../core/render/draw';
+import { drawFlat, flatLayout, UI } from '../../core/render/draw';
+import type { CellFrame } from './bounce';
 
 const FLAT = { pegs: true, rulers: true, guides: true, margin: true, markers: true } as const;
 const DIM = 0.35;
@@ -28,26 +29,11 @@ export function mirrored(d: Design): Design {
   };
 }
 
-/**
- * 畫一格：先用面板色蓋掉，再畫釘子或以 scale 倍（以格子中心縮放）畫豆子。
- * Task 8 的跳動動畫用它在 drawFlat 之後重畫動畫中的格子。
- */
-export function paintCell(ctx: CanvasRenderingContext2D, pad: number, cell: number, i: number, j: number, hex: string | null, scale: number): void {
-  const x = pad + i * cell, y = pad + j * cell;
-  ctx.fillStyle = UI.board; ctx.fillRect(x, y, cell, cell);
-  const cx = x + cell / 2, cy = y + cell / 2;
-  if (!hex) {
-    ctx.fillStyle = UI.peg; ctx.beginPath(); ctx.arc(cx, cy, Math.max(1, cell * 0.1), 0, Math.PI * 2); ctx.fill();
-    return;
-  }
-  if (scale > 0) drawBeadFlat(ctx, cx, cy, cell * 0.47 * scale, hex);
-}
-
 export type BoardOpts = {
   palette: Palette; cell: number; mirror: boolean; tokens: Tokens;
   highlightCode: string | null; highlightCells: [number, number][] | null;
-  /** 個別格子的縮放（格子索引為資料座標）；Task 8 使用 */
-  cellScale?: Map<number, number>;
+  /** 跳動中的格子（索引為資料座標）：暫時顯示的色號與縮放；見 lib/bounce */
+  cellAnim?: Map<number, CellFrame>;
 };
 
 /** 畫整張面板（面板座標，呼叫端負責縮放平移的 transform） */
@@ -56,8 +42,20 @@ export function drawBoard(ctx: CanvasRenderingContext2D, design: Design, o: Boar
   const v = getVariant(d);
   const cs = o.cell;
   const { pad } = flatLayout(d, { cell: cs, rulers: true });
-  drawFlat(ctx, d, v, o.palette, { cell: cs, ...FLAT });
   const dx = (i: number) => (o.mirror ? d.cols - 1 - i : i);
+  // 跳動中的格子整張一起重畫（不單獨補畫一格），參考線、留邊與打洞記號才不會被蓋掉
+  const anim = o.cellAnim?.size ? o.cellAnim : null;
+  if (anim) {
+    const cells = v.cells.slice();
+    const scale = new Map<number, number>();
+    for (const [k, f] of anim) {
+      const shownK = Math.floor(k / d.cols) * d.cols + dx(k % d.cols);
+      cells[shownK] = f.code; scale.set(shownK, f.scale);
+    }
+    drawFlat(ctx, d, { ...v, cells }, o.palette, { cell: cs, ...FLAT, beadScale: (k) => scale.get(k) ?? 1 });
+  } else {
+    drawFlat(ctx, d, v, o.palette, { cell: cs, ...FLAT });
+  }
 
   if (o.mirror) {
     // 上方尺規跟著翻轉：第 1 欄在右邊
@@ -65,13 +63,6 @@ export function drawBoard(ctx: CanvasRenderingContext2D, design: Design, o: Boar
     ctx.fillStyle = UI.ruler; ctx.font = `${Math.max(8, Math.round(Math.min(cs, 18) * 0.6))}px sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     for (let i = 0; i < d.cols; i += 5) ctx.fillText(String(i + 1), pad + dx(i) * cs + cs / 2, pad / 2);
-  }
-
-  if (o.cellScale) {
-    for (const [idx, s] of o.cellScale) {
-      const code = design.variants.find((x) => x.id === design.activeVariant)!.cells[idx];
-      paintCell(ctx, pad, cs, dx(idx % d.cols), Math.floor(idx / d.cols), code ? o.palette.get(code)?.displayHex ?? '#FF00FF' : null, s);
-    }
   }
 
   // 超出留邊的豆子：紅框
