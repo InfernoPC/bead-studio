@@ -2,13 +2,14 @@ import Fastify from 'fastify';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { OpError } from '../core/errors';
 import { buildMcpServer, type Vision } from './mcp';
+import type { PathOpts } from './paths';
 import { embedDesign } from './pngmeta';
 import { renderPng, type View } from './render';
 import type { DesignStore } from './store';
 
 const VIEWS: View[] = ['flat', 'pattern', '3d', 'ironed'];
 
-export type AppOpts = {
+export type AppOpts = PathOpts & {
   vision?: Vision;
   /** 額外允許的 Host（host:port），預設只允許 localhost:PORT 與 127.0.0.1:PORT */
   allowedHosts?: string[];

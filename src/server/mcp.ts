@@ -13,6 +13,7 @@ import { applyOps, syncOtherVariants, type Summary } from '../core/ops';
 import { allowedCodes, stockCapacity } from '../core/palette';
 import { encodeDesignText } from '../core/textCodec';
 import { createVariant, recolorVariant, selectVariant } from '../core/variants';
+import { resolveUserPath, type PathOpts } from './paths';
 import { embedDesign, extractDesign, hasDesignMeta } from './pngmeta';
 import { renderPng, type View } from './render';
 import type { DesignStore } from './store';
@@ -52,7 +53,7 @@ function summaryText(s: Summary, checks: string): string {
   ].filter(Boolean).join('\n');
 }
 
-export function buildMcpServer(store: DesignStore, opts: { vision?: Vision } = {}): McpServer {
+export function buildMcpServer(store: DesignStore, opts: { vision?: Vision } & PathOpts = {}): McpServer {
   const vision = opts.vision ?? 'auto';
   const server = new McpServer({ name: 'bead-studio', version: '0.1.0' });
   const checksText = (id?: string, v?: string) =>
@@ -165,10 +166,10 @@ export function buildMcpServer(store: DesignStore, opts: { vision?: Vision } = {
     wrap(({ designId: id, locked }) => { store.update(id, (cur) => ({ ...cur, shapeLocked: locked })); return ok(locked ? '🔒 形狀已鎖定' : '🔓 形狀已解鎖'); }));
 
   server.registerTool('import_image', {
-    description: '導入圖片。含 bead-studio metadata 的 PNG 會還原成新作品；其他圖片會轉換到目前作品的指定版本（覆蓋原內容）',
+    description: (opts.filesDir ? `只能使用 ${opts.filesDir} 裡的檔案。` : '') + '導入圖片。含 bead-studio metadata 的 PNG 會還原成新作品；其他圖片會轉換到目前作品的指定版本（覆蓋原內容）',
     inputSchema: { path: z.string(), designId, variant, removeBg: z.boolean().default(false), dither: z.boolean().default(false) },
   }, wrap(async ({ path, designId: id, variant: v, removeBg, dither }) => {
-    const buf = readFileSync(path);
+    const buf = readFileSync(resolveUserPath(path, opts));
     const known = (cells: (string | null)[]) => cells.every((c) => c === null || store.palette.has(c));
     const meta = extractDesign(buf);
     if (meta && meta.variants.every((x) => known(x.cells))) {
@@ -203,12 +204,13 @@ export function buildMcpServer(store: DesignStore, opts: { vision?: Vision } = {
   }));
 
   server.registerTool('export_png', {
-    description: '匯出 PNG（含可還原的 metadata）。variant 填 "all" 會並排所有版本',
+    description: (opts.filesDir ? `只能寫到 ${opts.filesDir} 裡。` : '') + '匯出 PNG（含可還原的 metadata）。variant 填 "all" 會並排所有版本',
     inputSchema: { path: z.string(), designId, variant, view: ViewE.default('flat'), scale: z.number().min(0.5).max(4).default(2) },
   }, wrap(async ({ path, designId: id, variant: v, view, scale }) => {
     if (!path.toLowerCase().endsWith('.png')) throw new OpError('bad_path', `匯出路徑必須以 .png 結尾：${path}`);
+    const target = resolveUserPath(path, opts);
     const d = store.get(id);
-    writeFileSync(path, embedDesign(await renderPng(d, store.palette, { variant: v, view: view as View, scale }), d));
+    writeFileSync(target, embedDesign(await renderPng(d, store.palette, { variant: v, view: view as View, scale }), d));
     return ok(`已匯出 ${path}`);
   }));
 
