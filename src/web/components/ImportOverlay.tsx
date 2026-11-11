@@ -19,6 +19,9 @@ async function isPng(file: File): Promise<boolean> {
   }
 }
 
+/** 拖出視窗時等多久沒有後續拖曳事件才收起（HTML 規範的 dragover 間隔最長約 550ms） */
+const LEAVE_GRACE_MS = 600;
+
 const hasFiles = (e: DragEvent) => !!e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files');
 /** 其他對話框開著時不接收拖曳（背後的畫面是 inert 的） */
 const modalOpen = () => !!document.querySelector('dialog[open]');
@@ -71,25 +74,37 @@ export function ImportOverlay({ design, editable, onNotice }: Props) {
     report(res);
   }, [onNotice, report]);
 
-  // 只理會帶檔案的拖曳（文字、頁面元素不算）；用計數器處理經過子元素時的 dragenter／dragleave 閃爍
+  // 只理會帶檔案的拖曳（文字、頁面元素不算）；用計數器處理經過子元素時的 dragenter／dragleave 閃爍。
+  // 計數器可能對不上（例如拖出視窗、瀏覽器漏送事件），所以另外有幾個收起的出口：
+  // 離開視窗（dragleave 的 relatedTarget 是 null）、按 Esc、或指標在沒有拖曳時移動
   useEffect(() => {
     let depth = 0;
-    const reset = () => { depth = 0; setDragging(false); };
+    let on = false;
+    let leaveTimer = 0;
+    const show = () => { clearTimeout(leaveTimer); on = true; setDragging(true); };
+    const reset = () => { clearTimeout(leaveTimer); depth = 0; if (on) { on = false; setDragging(false); } };
     const onEnter = (e: DragEvent) => {
       if (!hasFiles(e) || modalOpen()) return;
       e.preventDefault();
       depth++;
-      setDragging(true);
+      show();
     };
     const onOver = (e: DragEvent) => {
       if (!hasFiles(e)) return;
       e.preventDefault(); // 不讓瀏覽器自己開啟檔案
       e.dataTransfer!.dropEffect = latest.current.editable && !modalOpen() ? 'copy' : 'none';
+      clearTimeout(leaveTimer); // 還在頁面上拖曳
     };
     const onLeave = (e: DragEvent) => {
       if (!hasFiles(e) || depth === 0) return;
       depth--;
-      if (depth === 0) setDragging(false);
+      if (depth === 0) { reset(); return; }
+      // relatedTarget 是 null：拖出視窗了。Safari 在子元素之間移動時也是 null，所以稍等一下，
+      // 之後還有 dragenter／dragover 就表示仍在頁面上
+      if (e.relatedTarget === null) {
+        clearTimeout(leaveTimer);
+        leaveTimer = window.setTimeout(reset, LEAVE_GRACE_MS);
+      }
     };
     const onDrop = (e: DragEvent) => {
       if (!hasFiles(e)) return;
@@ -98,17 +113,25 @@ export function ImportOverlay({ design, editable, onNotice }: Props) {
       const file = e.dataTransfer!.files[0];
       if (file && !modalOpen()) void onFile(file);
     };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') reset(); };
+    // 拖曳期間瀏覽器不送 pointermove；收到就表示拖曳早就結束了
+    const onPointerMove = () => { if (on) reset(); };
     window.addEventListener('dragenter', onEnter);
     window.addEventListener('dragover', onOver);
     window.addEventListener('dragleave', onLeave);
     window.addEventListener('drop', onDrop);
     window.addEventListener('dragend', reset);
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('pointermove', onPointerMove);
     return () => {
+      clearTimeout(leaveTimer);
       window.removeEventListener('dragenter', onEnter);
       window.removeEventListener('dragover', onOver);
       window.removeEventListener('dragleave', onLeave);
       window.removeEventListener('drop', onDrop);
       window.removeEventListener('dragend', reset);
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('pointermove', onPointerMove);
     };
   }, [onFile]);
 

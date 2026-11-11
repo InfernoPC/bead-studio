@@ -98,6 +98,35 @@ test('the drop overlay only reacts to file drags', async ({ page }) => {
   await expect(overlay).toBeHidden();
 });
 
+test('a stuck drop overlay can be dismissed', async ({ page }) => {
+  await openDesign(page, '拖曳卡住');
+  const overlay = page.getByText('放開以導入圖片');
+  const file = await jpeg(page);
+  // 進了兩層（像是經過子元素）卻只離開一次，計數器以為還在頁面上。
+  // 拖出視窗：dragleave 的 relatedTarget 是 null，之後沒有拖曳事件
+  await drag(page, 'dragenter', file);
+  await drag(page, 'dragenter', file);
+  await drag(page, 'dragleave', file);
+  await expect(overlay).toBeHidden();
+
+  // 之後還有 dragover 就表示仍在頁面上（Safari 在子元素之間移動時 relatedTarget 也是 null）
+  await drag(page, 'dragenter', file);
+  await drag(page, 'dragenter', file);
+  await drag(page, 'dragleave', file);
+  await drag(page, 'dragover', file);
+  await page.waitForTimeout(800);
+  await expect(overlay).toBeVisible();
+
+  await page.keyboard.press('Escape');
+  await expect(overlay).toBeHidden();
+
+  await drag(page, 'dragenter', file);
+  await expect(overlay).toBeVisible();
+  await page.mouse.move(300, 300);
+  await page.mouse.move(310, 310);
+  await expect(overlay).toBeHidden();
+});
+
 test('dropping an exported PNG restores it as a new design', async ({ page }) => {
   await openDesign(page, '貓咪吊飾');
   await tool(page, 'apply_ops', { ops: [{ op: 'paste', x: 3, y: 3, rows: ['aaa'], legend: { a: 'A1' } }] });
