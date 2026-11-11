@@ -3,12 +3,12 @@ import type { Board } from '../../core/model';
 const cm = (mm: number) => Number((mm / 10).toFixed(1));
 
 type Props = {
-  board: Board | null; cols: number; rows: number; zoom: number;
+  board: Board | null; cols: number; rows: number; zoom: number; notice?: string | null;
   disabled: boolean; onZoom(factor: number): void;
 };
 
-/** 舞台下方狀態列：尺寸、留邊、縮放 */
-export function StatusBar({ board, cols, rows, zoom, disabled, onZoom }: Props) {
+/** 舞台下方狀態列：尺寸、留邊、提示（例如伺服器拒絕修改的原因）、縮放 */
+export function StatusBar({ board, cols, rows, zoom, notice, disabled, onZoom }: Props) {
   return (
     <div className="statusbar num">
       {board ? (
@@ -17,6 +17,7 @@ export function StatusBar({ board, cols, rows, zoom, disabled, onZoom }: Props) 
           <span>{`留邊 ${board.margin} 格`}</span>
         </>
       ) : <span className="muted">沒有開啟的作品</span>}
+      <span className="status-notice" role="status" data-testid="status-notice" title={notice ?? undefined}>{notice ?? ''}</span>
       <span className="zoom">
         <button type="button" className="icon-btn" aria-label="縮小" disabled={disabled || !board} onClick={() => onZoom(1 / 1.25)}>
           <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 10h10" /></svg>

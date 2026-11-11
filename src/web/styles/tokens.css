@@ -2,6 +2,7 @@
 :root {
   --paper: #F6EEDF; --card: #FFFDF8; --ink: #4A3A2E; --ink-soft: #8A7464;
   --board: #EADBC4; --peg: #D9C6A6; --peach: #E8A87C; --alert: #C8503F;
+  --inspect: #F2C14E; /* 檢查器標出問題格子的黃圈 */
   --line: color-mix(in srgb, var(--ink) 14%, transparent);
   --shadow: 0 1px 3px color-mix(in srgb, var(--ink) 18%, transparent);
   --r-sm: 8px; --r-md: 14px; --r-lg: 20px;

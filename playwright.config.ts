@@ -6,6 +6,11 @@ export default defineConfig({
   workers: 1,
   reporter: 'list',
   use: { baseURL: 'http://localhost:5175', ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
+  // 所有 spec 共用一個伺服器：shell.spec 要先在空狀態下執行，其他 spec 之後才建立作品
+  projects: [
+    { name: 'empty-server', testMatch: /shell\.spec\.ts$/ },
+    { name: 'editor', testIgnore: /shell\.spec\.ts$/, dependencies: ['empty-server'] },
+  ],
   webServer: {
     command: 'pnpm build:web && node e2e/start-test-server.mjs',
     port: 5175,

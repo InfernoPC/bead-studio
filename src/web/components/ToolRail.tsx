@@ -3,6 +3,9 @@ import type { Tool } from '../lib/editorState';
 
 type ToolDef = { tool: Tool; label: string; key: string; icon: ReactNode };
 
+/** 依實體按鍵比對（e.code），中文輸入法下 e.key 會是 'Process' */
+const codeOf = (key: string) => `Key${key}`;
+
 // 20×20 線條圖示，顏色跟著文字（currentColor）
 const TOOLS: ToolDef[] = [
   { tool: 'pen', label: '畫筆', key: 'B', icon: <path d="M4 16l1-4 8-8 3 3-8 8-4 1zM11 6l3 3" /> },
@@ -31,10 +34,9 @@ export function ToolRail({ tool, mirror, disabled, onTool, onToggleMirror }: Pro
   useEffect(() => {
     if (disabled) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || e.repeat || isTyping(e.target)) return;
-      const k = e.key.toUpperCase();
-      if (k === MIRROR_KEY) { e.preventDefault(); onToggleMirror(); return; }
-      const def = TOOLS.find((d) => d.key === k);
+      if (e.isComposing || e.metaKey || e.ctrlKey || e.altKey || e.repeat || isTyping(e.target)) return;
+      if (e.code === codeOf(MIRROR_KEY)) { e.preventDefault(); onToggleMirror(); return; }
+      const def = TOOLS.find((d) => e.code === codeOf(d.key));
       if (def) { e.preventDefault(); onTool(def.tool); }
     };
     window.addEventListener('keydown', onKey);

@@ -1,7 +1,8 @@
-import { useCallback, type Dispatch } from 'react';
+import { useCallback, useEffect, useState, type Dispatch } from 'react';
 import type { StateSnapshot } from '../lib/api';
 import type { EditorAction, EditorState, Tool } from '../lib/editorState';
 import type { ConnState } from '../lib/serverState';
+import { Editor } from './Editor';
 import { OfflineBanner } from './OfflineBanner';
 import { SidePanel } from './SidePanel';
 import { StatusBar } from './StatusBar';
@@ -20,6 +21,10 @@ export function AppShell({ conn, snapshot, editor, dispatch }: Props) {
   const setTool = useCallback((tool: Tool) => dispatch({ type: 'setTool', tool }), [dispatch]);
   const toggleMirror = useCallback(() => dispatch({ type: 'toggleMirror' }), [dispatch]);
   const note = (text: string) => <p className="panel-note">{text}</p>;
+  // 狀態列的提示（例如伺服器拒絕修改的原因）；換作品時清掉
+  const [notice, setNotice] = useState<string | null>(null);
+  const designId = design?.id;
+  useEffect(() => setNotice(null), [designId]);
 
   return (
     <div className="shell">
@@ -29,6 +34,9 @@ export function AppShell({ conn, snapshot, editor, dispatch }: Props) {
         <ToolRail tool={editor.tool} mirror={editor.mirror} disabled={!editable} onTool={setTool} onToggleMirror={toggleMirror} />
         <div className="stage-column">
           <main className="stage" aria-label="編輯區">
+            {design && snapshot && (
+              <Editor snapshot={snapshot} design={design} editor={editor} dispatch={dispatch} editable={editable} onNotice={setNotice} />
+            )}
             {!design && snapshot && (
               <div className="empty-state">
                 <p>還沒有作品。建立一個新作品，或把圖片拖進來。</p>
@@ -38,7 +46,7 @@ export function AppShell({ conn, snapshot, editor, dispatch }: Props) {
             )}
           </main>
           <StatusBar
-            board={design?.board ?? null} cols={design?.cols ?? 0} rows={design?.rows ?? 0} zoom={editor.zoom}
+            board={design?.board ?? null} cols={design?.cols ?? 0} rows={design?.rows ?? 0} zoom={editor.zoom} notice={notice}
             disabled={!editable} onZoom={(factor) => dispatch({ type: 'zoom', factor })}
           />
         </div>
