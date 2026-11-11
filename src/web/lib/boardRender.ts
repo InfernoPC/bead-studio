@@ -7,19 +7,18 @@ import type { CellFrame } from './bounce';
 const FLAT = { pegs: true, rulers: true, guides: true, margin: true, markers: true } as const;
 const DIM = 0.35;
 
-/** 從 tokens.css 讀取畫布要用的顏色（元件不寫死色碼） */
-/** 亮暗主題切換後要重新讀取（見 lib/theme useTheme） */
+/** 從 tokens.css 讀取畫布要用的顏色（元件不寫死色碼）；亮暗主題切換後要重新讀取（見 lib/theme useTheme） */
 export type Tokens = {
   alert: string; ink: string; inkSoft: string; inspect: string;
   /** 板面配色，傳給 core drawFlat；豆子顏色不在這裡，永遠來自色票 */
-  ui: { bg: string; board: string; peg: string; ruler: string; guide: string };
+  ui: { bg: string; board: string; peg: string; ruler: string; guide: string; rim?: string };
 };
 export function readTokens(): Tokens {
   const s = getComputedStyle(document.documentElement);
   const v = (name: string) => s.getPropertyValue(name).trim();
   return {
     alert: v('--alert'), ink: v('--ink'), inkSoft: v('--ink-soft'), inspect: v('--inspect'),
-    ui: { bg: v('--canvas-bg'), board: v('--canvas-board'), peg: v('--canvas-peg'), ruler: v('--canvas-ruler'), guide: v('--canvas-guide') },
+    ui: { bg: v('--canvas-bg'), board: v('--canvas-board'), peg: v('--canvas-peg'), ruler: v('--canvas-ruler'), guide: v('--canvas-guide'), rim: v('--canvas-rim') || undefined },
   };
 }
 

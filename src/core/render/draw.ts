@@ -21,7 +21,8 @@ const luminance = (hex: string) => {
   return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
 };
 
-export function drawBeadFlat(ctx: C2D, cx: number, cy: number, R: number, hex: string): void {
+/** rim：豆子外圈的描邊色（編輯區暗色主題用）；不傳就不畫，豆子本身的顏色不變 */
+export function drawBeadFlat(ctx: C2D, cx: number, cy: number, R: number, hex: string, rim?: string): void {
   const g = ctx.createRadialGradient(cx - R * 0.2, cy - R * 0.25, R * 0.2, cx, cy, R);
   g.addColorStop(0, shadeHex(hex, 0.12));
   g.addColorStop(1, shadeHex(hex, -0.14));
@@ -29,6 +30,12 @@ export function drawBeadFlat(ctx: C2D, cx: number, cy: number, R: number, hex: s
   ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = shadeHex(hex, -0.35);
   ctx.beginPath(); ctx.arc(cx, cy, R * 0.36, 0, Math.PI * 2); ctx.fill();
+  if (rim) {
+    // 描邊畫在豆子外緣之外，不蓋到豆子顏色
+    const lw = R * 0.13;
+    ctx.strokeStyle = rim; ctx.lineWidth = lw;
+    ctx.beginPath(); ctx.arc(cx, cy, R + lw / 2, 0, Math.PI * 2); ctx.stroke();
+  }
 }
 
 export type FlatOpts = {
@@ -36,7 +43,7 @@ export type FlatOpts = {
   /** 個別豆子的縮放（以格子中心；k = j * cols + i）；編輯區的跳動動畫用，≤0 時畫成空格 */
   beadScale?: (k: number) => number;
   /** 覆寫板面配色（編輯區依亮暗主題傳入）；豆子顏色不受影響。未傳時用 UI（伺服器匯出固定亮色） */
-  ui?: Partial<Pick<typeof UI, 'bg' | 'board' | 'peg' | 'ruler' | 'guide'>>;
+  ui?: Partial<Pick<typeof UI, 'bg' | 'board' | 'peg' | 'ruler' | 'guide'>> & { rim?: string };
 };
 
 export function flatLayout(d: Design, o: FlatOpts) {
@@ -65,7 +72,7 @@ export function drawFlat(ctx: C2D, d: Design, v: Variant, p: Palette, o: FlatOpt
       continue;
     }
     const hex = p.get(code)?.displayHex ?? '#FF00FF';
-    drawBeadFlat(ctx, cx, cy, cs * 0.47 * scale, hex);
+    drawBeadFlat(ctx, cx, cy, cs * 0.47 * scale, hex, o.ui?.rim);
     if (o.codes) {
       ctx.fillStyle = luminance(hex) > 0.55 ? '#3A2E25' : '#FFFFFF';
       ctx.font = `bold ${Math.round(cs * 0.34)}px sans-serif`;

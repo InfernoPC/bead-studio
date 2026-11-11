@@ -53,11 +53,11 @@ export function useThemePref(): [ThemePref, () => void] {
     mq.addEventListener('change', apply);
     return () => mq.removeEventListener('change', apply);
   }, [pref]);
-  const cycle = useCallback(() => setPref((p) => {
-    const n = nextPref(p);
+  const cycle = useCallback(() => {
+    const n = nextPref(pref);
     savePref(n, browserStorage());
-    return n;
-  }), []);
+    setPref(n);
+  }, [pref]);
   return [pref, cycle];
 }
 

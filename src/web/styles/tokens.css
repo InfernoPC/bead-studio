@@ -1,12 +1,13 @@
 @import url('https://fonts.googleapis.com/css2?family=Huninn&display=swap');
 :root {
-  --paper: #F6EEDF; --card: #FFFDF8; --ink: #4A3A2E; --ink-soft: #8A7464;
-  --board: #EADBC4; --peg: #D9C6A6; --peach: #E8A87C; --alert: #C8503F;
+  --paper: #F6EEDF; --card: #FFFDF8; --ink: #4A3A2E; --ink-soft: #725D4E;
+  --board: #EADBC4; --peg: #D9C6A6; --peach: #E8A87C; --alert: #B5402F;
   --inspect: #F2C14E; /* 檢查器標出問題格子的黃圈 */
-  /* 編輯區 canvas 的板面（亮色與 core/render UI 相同，伺服器匯出的 PNG 固定用這組亮色）；
-     canvas 讀不懂 var()／color-mix，這裡只能放實際色值 */
+  /* 編輯區 canvas 的板面（底色、板子、釘子、格線與 core/render UI 相同；尺規數字加深到 AA 對比，
+     伺服器匯出的 PNG 不受影響、固定用 core 的亮色）；canvas 讀不懂 var()／color-mix，這裡只能放實際色值。
+     --canvas-rim：豆子外圈的淡色描邊，只在暗色時設定（黑豆在暗板上才看得清楚），亮色留空＝不畫 */
   --canvas-bg: #FBF6EE; --canvas-board: #EFE3D0; --canvas-peg: #E2D2BA;
-  --canvas-ruler: #9C8670; --canvas-guide: rgba(156, 134, 112, 0.3);
+  --canvas-ruler: #7F6A59; --canvas-guide: rgba(156, 134, 112, 0.3); --canvas-rim: ;
   --line: color-mix(in srgb, var(--ink) 14%, transparent);
   --shadow: 0 1px 3px color-mix(in srgb, var(--ink) 18%, transparent);
   --r-sm: 8px; --r-md: 14px; --r-lg: 20px;
@@ -23,6 +24,7 @@
   --shadow: 0 1px 3px color-mix(in srgb, #000 35%, transparent);
   --canvas-bg: #30271F; --canvas-board: #4A3D32; --canvas-peg: #5E4E40;
   --canvas-ruler: #A8957F; --canvas-guide: rgba(241, 230, 214, 0.16);
+  --canvas-rim: rgba(241, 230, 214, 0.18);
 }
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }

@@ -172,7 +172,7 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
     const blocked = isForbidden(d, ed.tool, dataX, h[1]);
     if (ed.tool === 'pen' && ed.color && !blocked) {
       ctx.globalAlpha = 0.6;
-      drawBeadFlat(ctx, cx, cy, cs * 0.47, opCtx.palette.get(ed.color)?.displayHex ?? '#FF00FF');
+      drawBeadFlat(ctx, cx, cy, cs * 0.47, opCtx.palette.get(ed.color)?.displayHex ?? '#FF00FF', tokens.ui.rim);
       ctx.globalAlpha = 1;
     }
     ctx.lineWidth = Math.max(1, cs * 0.08);
