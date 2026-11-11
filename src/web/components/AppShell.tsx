@@ -6,7 +6,9 @@ import { getVariant } from '../../core/model';
 import { displayDesign } from '../lib/clientCore';
 import { ChecksPanel, useIssues } from './ChecksPanel';
 import { BeadTray } from './BeadTray';
+import { BoardDialog } from './BoardDialog';
 import { Editor } from './Editor';
+import { NewDesignDialog } from './NewDesignDialog';
 import { OfflineBanner } from './OfflineBanner';
 import { Preview3D } from './Preview3D';
 import { SidePanel } from './SidePanel';
@@ -38,10 +40,15 @@ export function AppShell({ conn, snapshot, editor, dispatch }: Props) {
   const shown = displayDesign(design, editor.pending);
   const variant = shown ? getVariant(shown) : null;
   const issues = useIssues(shown, snapshot?.palette, snapshot?.inventory, snapshot?.checks);
+  // 建立新作品（作品選單、空狀態）與面板設定（狀態列的尺寸）對話框
+  const [dialog, setDialog] = useState<'new' | 'board' | null>(null);
+  const closeDialog = useCallback(() => setDialog(null), []);
+  // 離線時不能改，開著的對話框也一併關掉
+  useEffect(() => { if (!editable) setDialog(null); }, [editable]);
 
   return (
     <div className="shell">
-      <TopBar designName={design?.name ?? null} />
+      <TopBar design={design} designs={snapshot?.designs ?? []} editable={editable} onNewDesign={() => setDialog('new')} />
       <OfflineBanner conn={conn} />
       <div className="workspace">
         <ToolRail tool={editor.tool} mirror={editor.mirror} disabled={!editable} onTool={setTool} onToggleMirror={toggleMirror} />
@@ -53,14 +60,13 @@ export function AppShell({ conn, snapshot, editor, dispatch }: Props) {
             {!design && snapshot && (
               <div className="empty-state">
                 <p>還沒有作品。建立一個新作品，或把圖片拖進來。</p>
-                {/* 行為在 Task 12 加入 */}
-                <button type="button" className="btn-primary" disabled={!editable}>建立新作品</button>
+                <button type="button" className="btn-primary" disabled={!editable} onClick={() => setDialog('new')}>建立新作品</button>
               </div>
             )}
           </main>
           <StatusBar
             board={design?.board ?? null} cols={design?.cols ?? 0} rows={design?.rows ?? 0} zoom={editor.zoom} notice={notice}
-            disabled={!editable} onZoom={(factor) => dispatch({ type: 'zoom', factor })}
+            disabled={!editable} onZoom={(factor) => dispatch({ type: 'zoom', factor })} onBoardSettings={() => setDialog('board')}
           />
         </div>
         <SidePanel
@@ -86,6 +92,8 @@ export function AppShell({ conn, snapshot, editor, dispatch }: Props) {
             : note('開啟作品後顯示 3D 預覽。')}
         />
       </div>
+      <NewDesignDialog open={dialog === 'new'} onClose={closeDialog} />
+      {design && <BoardDialog open={dialog === 'board'} design={design} onClose={closeDialog} />}
     </div>
   );
 }

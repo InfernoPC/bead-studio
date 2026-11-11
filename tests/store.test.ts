@@ -67,6 +67,16 @@ describe('DesignStore', () => {
     expect(s2.get().mask[0]).toBe('0');
     expect(s2.get().snapshots).toHaveLength(1);
   });
+  it('saving a snapshot broadcasts the design (same version) so open browsers list it', () => {
+    const s = mkStore();
+    const d = s.create('x', board);
+    const seen: { version: number; snapshots: unknown[] }[] = [];
+    s.on('change', (x) => seen.push(x));
+    s.snapshot(undefined, '大改前');
+    expect(seen).toHaveLength(1);
+    expect(seen[0].version).toBe(d.version);
+    expect(seen[0].snapshots).toHaveLength(1);
+  });
   it('setInventory merges and persists', () => {
     const s = mkStore();
     s.setInventory([{ code: 'A1', owned: true, count: 100 }]);

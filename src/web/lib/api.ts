@@ -42,6 +42,12 @@ export async function callTool(name: string, args: Record<string, unknown>): Pro
   }
 }
 
+/** 伺服器的 OpError 文字是「code（op #i）: 訊息」；拆出 code 讓 UI 分辨 would_crop 等情況，訊息給人看 */
+export function toolError(text: string): { code: string | null; message: string } {
+  const m = /^([a-z][a-z0-9_]*)(?:（op #\d+）)?: ([\s\S]*)$/.exec(text.trim());
+  return m ? { code: m[1], message: m[2] } : { code: null, message: text };
+}
+
 export async function uploadImport(
   file: Blob, o: { variant?: string; removeBg?: boolean; dither?: boolean } = {},
 ): Promise<{ ok: boolean; text: string }> {
@@ -60,8 +66,8 @@ export async function uploadImport(
 
 export function exportUrl(designId: string, o: { variant?: string; view?: View; scale?: number } = {}): string {
   const q = new URLSearchParams();
-  if (o.variant) q.set('variant', o.variant);
   if (o.view) q.set('view', o.view);
+  if (o.variant) q.set('variant', o.variant);
   if (o.scale) q.set('scale', String(o.scale));
   const qs = q.toString();
   return `/api/designs/${encodeURIComponent(designId)}/export.png${qs ? `?${qs}` : ''}`;

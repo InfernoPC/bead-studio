@@ -4,16 +4,18 @@ const cm = (mm: number) => Number((mm / 10).toFixed(1));
 
 type Props = {
   board: Board | null; cols: number; rows: number; zoom: number; notice?: string | null;
-  disabled: boolean; onZoom(factor: number): void;
+  disabled: boolean; onZoom(factor: number): void; onBoardSettings(): void;
 };
 
-/** 舞台下方狀態列：尺寸、留邊、提示（例如伺服器拒絕修改的原因）、縮放 */
-export function StatusBar({ board, cols, rows, zoom, notice, disabled, onZoom }: Props) {
+/** 舞台下方狀態列：尺寸（點了開啟面板設定）、留邊、提示（例如伺服器拒絕修改的原因）、縮放 */
+export function StatusBar({ board, cols, rows, zoom, notice, disabled, onZoom, onBoardSettings }: Props) {
   return (
     <div className="statusbar num">
       {board ? (
         <>
-          <span>{`${cols} × ${rows} 格 · ${cm(board.widthMm)} × ${cm(board.heightMm)} cm · ${board.bead}mm 豆`}</span>
+          <button type="button" className="status-size" title="面板設定" disabled={disabled} onClick={onBoardSettings}>
+            {`${cols} × ${rows} 格 · ${cm(board.widthMm)} × ${cm(board.heightMm)} cm · ${board.bead}mm 豆`}
+          </button>
           <span>{`留邊 ${board.margin} 格`}</span>
         </>
       ) : <span className="muted">沒有開啟的作品</span>}

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { callTool, uploadImport } from '../../src/web/lib/api';
+import { callTool, exportUrl, toolError, uploadImport } from '../../src/web/lib/api';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -23,5 +23,23 @@ describe('api error mapping', () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('fetch failed'); }));
     expect(await callTool('x', {})).toMatchObject({ ok: false });
     expect(await uploadImport(new Blob(['x']))).toMatchObject({ ok: false });
+  });
+});
+
+describe('toolError', () => {
+  it('splits the OpError code from the message', () => {
+    expect(toolError('would_crop: 新尺寸會裁掉 4 顆豆子；確認要裁切請加上 force: true'))
+      .toEqual({ code: 'would_crop', message: '新尺寸會裁掉 4 顆豆子；確認要裁切請加上 force: true' });
+    expect(toolError('shape_locked（op #2）: 形狀已鎖定')).toEqual({ code: 'shape_locked', message: '形狀已鎖定' });
+  });
+  it('keeps text without a code as the message', () => {
+    expect(toolError('連不上伺服器。')).toEqual({ code: null, message: '連不上伺服器。' });
+  });
+});
+
+describe('exportUrl', () => {
+  it('builds the export query', () => {
+    expect(exportUrl('d-1', { variant: 'all', view: 'pattern', scale: 2 })).toBe('/api/designs/d-1/export.png?view=pattern&variant=all&scale=2');
+    expect(exportUrl('d-1')).toBe('/api/designs/d-1/export.png');
   });
 });

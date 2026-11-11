@@ -148,7 +148,10 @@ export class DesignStore extends EventEmitter {
   snapshot(id: string | undefined, name: string): Snapshot {
     const cur = this.get(id);
     const snap: Snapshot = { id: newId('s'), name, at: new Date().toISOString(), design: coreOf(cur) };
-    this.save({ ...cur, snapshots: [...cur.snapshots, snap] });
+    const next = { ...cur, snapshots: [...cur.snapshots, snap] };
+    this.save(next);
+    // 快照不算一步修改（版本不變），但開著的瀏覽器要看到新的快照清單
+    this.emit('change', next);
     return snap;
   }
 
