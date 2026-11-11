@@ -1,12 +1,12 @@
 import { deltaE00 } from './color';
 import { OpError } from './errors';
-import { bbox, getVariant, type Design } from './model';
+import { bbox, getVariant, type DesignCore } from './model';
 import type { Palette } from './palette';
 import { legendFor } from './textCodec';
 
 const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
-export function describeDesign(d: Design, variantId: string | undefined, palette: Palette): string {
+export function describeDesign(d: DesignCore, variantId: string | undefined, palette: Palette): string {
   const v = getVariant(d, variantId);
   const { cols, rows } = d;
   const at = (x: number, y: number) => (x >= 0 && y >= 0 && x < cols && y < rows ? v.cells[y * cols + x] : null);

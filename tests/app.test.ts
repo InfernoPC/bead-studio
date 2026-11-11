@@ -10,7 +10,7 @@ import { buildApp } from '../src/server/app';
 import { extractDesign } from '../src/server/pngmeta';
 import { FIX_COLORS } from './fixtures';
 
-let app: ReturnType<typeof buildApp>;
+let app: Awaited<ReturnType<typeof buildApp>>;
 let base: string;
 let store: DesignStore;
 
@@ -30,7 +30,7 @@ beforeAll(async () => {
   writeFileSync(join(dir, 'data/palette.json'), JSON.stringify(FIX_COLORS));
   store = new DesignStore({ dataDir: join(dir, 'data'), configDir: join(dir, 'config') });
   store.load();
-  app = buildApp(store);
+  app = await buildApp(store);
   base = await app.listen({ port: 0, host: '127.0.0.1' });
 });
 afterAll(() => app.close());
@@ -82,7 +82,7 @@ describe('http app', () => {
     expect(await rawGet('/health', { host: `localhost:${port}`, origin: `http://127.0.0.1:${port}` })).toBe(200);
   });
   it('accepts extra allowed hosts', async () => {
-    const extra = buildApp(store, { allowedHosts: ['beads.lan:8080'] });
+    const extra = await buildApp(store, { allowedHosts: ['beads.lan:8080'] });
     await extra.ready();
     const r = await extra.inject({ method: 'GET', url: '/health', headers: { host: 'beads.lan:8080' } });
     expect(r.statusCode).toBe(200);

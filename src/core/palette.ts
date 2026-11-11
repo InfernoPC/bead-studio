@@ -1,4 +1,5 @@
 import { deltaE00, hexToLab, hexToRgb, type Lab } from './color';
+import { countCodes } from './model';
 
 export type PaletteColor = {
   code: string; name: string; series: string; hex: string;
@@ -73,4 +74,25 @@ export function stockCapacity(inv: Inventory): Map<string, number> {
   const m = new Map<string, number>();
   for (const [code, s] of Object.entries(inv)) if (s.owned) m.set(code, s.count);
   return m;
+}
+
+export type Deduction = { code: string; used: number; before: number; after: number };
+/** deducted：擁有而且還有庫存、真的會扣的；outOfStock：擁有但已經是 0 顆（沒東西可扣）；skipped：未擁有、不受影響 */
+export type DeductionPlan = { deducted: Deduction[]; outOfStock: { code: string; used: number }[]; skipped: { code: string; used: number }[] };
+
+const codeOrder = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
+
+/** 做完作品後要從庫存扣掉多少：擁有的顏色扣掉用量（最少扣到 0）；未擁有的色號不受影響，另外列出。
+ *  各組都依用量由多到少（同量依色號）。伺服器的 deduct_inventory 與 UI 的確認對話框共用這份計算 */
+export function planDeduction(cells: (string | null)[], inv: Inventory): DeductionPlan {
+  const order = <T extends { code: string; used: number }>(xs: T[]) =>
+    xs.sort((a, b) => b.used - a.used || codeOrder.compare(a.code, b.code));
+  const plan: DeductionPlan = { deducted: [], outOfStock: [], skipped: [] };
+  for (const [code, n] of Object.entries(countCodes(cells))) {
+    const s = inv[code];
+    if (!s?.owned) plan.skipped.push({ code, used: n });
+    else if (s.count <= 0) plan.outOfStock.push({ code, used: n });
+    else plan.deducted.push({ code, used: n, before: s.count, after: Math.max(0, s.count - n) });
+  }
+  return { deducted: order(plan.deducted), outOfStock: order(plan.outOfStock), skipped: order(plan.skipped) };
 }

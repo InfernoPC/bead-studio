@@ -23,6 +23,11 @@ description: 用 Bead Studio MCP 設計拼豆圖案時使用：設計流程、�
 8. **自我審查**：`render_preview`（能看圖時）或 `describe_design`（不能看圖時）。至少審一輪：對稱、比例、對比、可讀性。
 9. **配色版本**：形狀確定後 `set_shape_lock {locked:true}`，再用 `create_variant` 產生「有的色」（owned）和「庫存版」（stock）版本，各自 `render_preview` 檢查，必要時只用換色類 op 微調。
 
+## 做完作品
+使用者會在網頁上即時看到你透過 MCP 做的修改（被改到的豆子會跳成一波動畫），所以請優先用少數幾個大的 `apply_ops`（一次一批操作），不要一顆一顆分很多次呼叫，畫面才不會一直閃動。
+
+使用者說「我做完了」「做好了」之類（實際拼完這個作品）時，先跟他確認要扣庫存，再呼叫 `deduct_inventory`（省略 `designId`／`variant` 就是目前作品與目前版本）。它會從擁有的顏色扣掉用量（最少到 0），未擁有的色號不動；扣庫存不能 undo，扣錯了請使用者到網頁的庫存頁調整或用 `set_inventory` 修正。把回傳的扣除結果（特別是扣到 0 的色號）告訴使用者。
+
 ## 省 token 原則
 - 一次 `apply_ops` 送一整批相關指令，不要一顆一顆畫。
 - 能用幾何 op（rect/ellipse/line/polygon/fill）就不要用 paste；paste 只用在不規則形狀。

@@ -11,6 +11,6 @@ try {
 }
 const store = new DesignStore({ dataDir: cfg.dataDir, configDir: cfg.configDir });
 store.load();
-const app = buildApp(store, { vision: cfg.vision, allowedHosts: cfg.allowedHosts, filesDir: cfg.filesDir, homeDir: cfg.homeDir });
+const app = await buildApp(store, { vision: cfg.vision, allowedHosts: cfg.allowedHosts, filesDir: cfg.filesDir, homeDir: cfg.homeDir });
 await app.listen({ port: cfg.port, host: cfg.host });
 console.log(`🫘 Bead Studio: http://localhost:${cfg.port}  (MCP: http://localhost:${cfg.port}/mcp)`);

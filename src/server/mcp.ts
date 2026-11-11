@@ -1,20 +1,19 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { loadImage, createCanvas } from '@napi-rs/canvas';
 import { z } from 'zod';
 import { setBoard } from '../core/board';
 import { formatIssues, runChecks } from '../core/checks';
 import { describeDesign } from '../core/describe';
 import { OpError } from '../core/errors';
-import { imageToCells } from '../core/importImage';
-import { getVariant, maskFromCells } from '../core/model';
+import { getVariant, type Design } from '../core/model';
 import { MAX_BOARD_MM, MAX_OPS, OpSchema, RegionSchema } from '../core/opSchema';
-import { applyOps, syncOtherVariants, type Summary } from '../core/ops';
-import { allowedCodes, stockCapacity } from '../core/palette';
+import { applyOps, type Summary } from '../core/ops';
 import { encodeDesignText } from '../core/textCodec';
+import { allowedCodes, type DeductionPlan } from '../core/palette';
 import { createVariant, recolorVariant, selectVariant } from '../core/variants';
 import { resolveUserPath, type PathOpts } from './paths';
-import { embedDesign, extractDesign, hasDesignMeta } from './pngmeta';
+import { importImageBuffer } from './importBuffer';
+import { embedDesign } from './pngmeta';
 import { renderPng, type View } from './render';
 import type { DesignStore } from './store';
 
@@ -50,6 +49,28 @@ function summaryText(s: Summary, checks: string): string {
     `變化：${delta}`,
     s.clipped ? `裁切：${s.clipped} 格超出畫布被略過` : '',
     `檢查：\n${checks}`,
+  ].filter(Boolean).join('\n');
+}
+
+function deductionText(d: Design, variant: string, plan: DeductionPlan): string {
+  const name = getVariant(d, variant).name;
+  const tail = [
+    plan.outOfStock.length ? `已經沒有庫存（不夠）：${plan.outOfStock.map((r) => `${r.code} 不夠 ${r.used} 顆`).join('、')}` : '',
+    plan.skipped.length ? `未擁有、沒有扣：${plan.skipped.map((r) => r.code).join('、')}` : '',
+  ];
+  if (plan.deducted.length === 0) {
+    return [`「${d.name}」（${name}）沒有用到還有庫存的顏色，庫存沒有變動。`, ...tail].filter(Boolean).join('\n');
+  }
+  const out = plan.deducted.map((r) => {
+    const short = r.used - r.before;
+    return `${r.code} 扣 ${r.before - r.after} 顆（${r.before} → ${r.after}）${short > 0 ? `，不夠 ${short} 顆` : ''}`;
+  });
+  const empty = plan.deducted.filter((r) => r.after === 0).map((r) => r.code);
+  return [
+    `已從庫存扣掉「${d.name}」（${name}）用掉的豆子：`,
+    ...out,
+    empty.length ? `扣到 0 的色號：${empty.join('、')}` : '',
+    ...tail,
   ].filter(Boolean).join('\n');
 }
 
@@ -165,43 +186,16 @@ export function buildMcpServer(store: DesignStore, opts: { vision?: Vision } & P
   server.registerTool('set_shape_lock', { description: '鎖定形狀（只能換色）或解鎖', inputSchema: { designId, locked: z.boolean() } },
     wrap(({ designId: id, locked }) => { store.update(id, (cur) => ({ ...cur, shapeLocked: locked })); return ok(locked ? '🔒 形狀已鎖定' : '🔓 形狀已解鎖'); }));
 
+  server.registerTool('calibrate_color', {
+    description: '校正某色號的顯示色（讓螢幕更接近實物）；hex 填 null 清除校正',
+    inputSchema: { code: z.string(), hex: z.string().nullable() },
+  }, wrap(({ code, hex }) => { store.setCalibration(code, hex); return ok(hex ? `已校正 ${code} 為 ${hex}` : `已清除 ${code} 的校正`); }));
+
   server.registerTool('import_image', {
     description: (opts.filesDir ? `只能使用 ${opts.filesDir} 裡的檔案。` : '') + '導入圖片。含 bead-studio metadata 的 PNG 會還原成新作品；其他圖片會轉換到目前作品的指定版本（覆蓋原內容）',
     inputSchema: { path: z.string(), designId, variant, removeBg: z.boolean().default(false), dither: z.boolean().default(false) },
-  }, wrap(async ({ path, designId: id, variant: v, removeBg, dither }) => {
-    const buf = readFileSync(resolveUserPath(path, opts));
-    const known = (cells: (string | null)[]) => cells.every((c) => c === null || store.palette.has(c));
-    const meta = extractDesign(buf);
-    if (meta && meta.variants.every((x) => known(x.cells))) {
-      meta.snapshots = meta.snapshots.filter((s) => s.design.variants.every((x) => known(x.cells)));
-      const d = store.importDesign(meta);
-      return ok(`已從 PNG metadata 還原作品 ${d.id}「${d.name}」`);
-    }
-    const notice = hasDesignMeta(buf) ? '⚠ PNG 內的 bead-studio metadata 無效或含有目前色表沒有的色號，已改用一般圖片轉換\n' : '';
-    const img = await loadImage(buf);
-    const c = createCanvas(img.width, img.height);
-    const ctx = c.getContext('2d');
-    ctx.drawImage(img, 0, 0);
-    const rgba = ctx.getImageData(0, 0, img.width, img.height).data;
-    const d = store.update(id, (cur) => {
-      if (cur.shapeLocked) throw new OpError('shape_locked', '形狀已鎖定，無法導入圖片（會改變豆子位置）');
-      const target = getVariant(cur, v);
-      const allowed = store.palette.entries(allowedCodes(store.palette, store.inventory, target.paletteMode)).filter((e) => !e.transparent);
-      const cells = imageToCells(rgba, img.width, img.height, {
-        cols: cur.cols, rows: cur.rows, margin: cur.board.margin, allowed, removeBg, dither,
-        capacity: target.paletteMode === 'stock' ? stockCapacity(store.inventory) : undefined,
-      });
-      const next = structuredClone(cur);
-      const tv = getVariant(next, target.id);
-      tv.cells = cells;
-      next.mask = maskFromCells(cells);
-      for (const o of next.variants) if (o !== tv) o.cells = o.cells.map(() => null);
-      syncOtherVariants(next, tv, store.ctx());
-      return next;
-    });
-    const n = getVariant(d, v).cells.filter(Boolean).length;
-    return ok(`${notice}已轉換圖片到 ${d.name}：${n} 顆豆子\n檢查：\n${checksText(d.id, v)}`);
-  }));
+  }, wrap(async ({ path, designId: id, variant: v, removeBg, dither }) =>
+    ok(await importImageBuffer(store, readFileSync(resolveUserPath(path, opts)), { designId: id, variant: v, removeBg, dither }))));
 
   server.registerTool('export_png', {
     description: (opts.filesDir ? `只能寫到 ${opts.filesDir} 裡。` : '') + '匯出 PNG（含可還原的 metadata）。variant 填 "all" 會並排所有版本',
@@ -221,6 +215,15 @@ export function buildMcpServer(store: DesignStore, opts: { vision?: Vision } & P
     const inv = store.setInventory(items);
     const owned = Object.entries(inv).filter(([, s]) => s.owned);
     return ok(`已更新。目前擁有 ${owned.length} 色，共 ${owned.reduce((a, [, s]) => a + s.count, 0)} 顆`);
+  }));
+
+  server.registerTool('deduct_inventory', {
+    description: '使用者做完作品後扣庫存：擁有的顏色扣掉這個版本的用量（最少扣到 0），未擁有的色號不動。不能復原，呼叫前先跟使用者確認',
+    inputSchema: { designId, variant },
+  }, wrap(({ designId: id, variant: v }) => {
+    const d = store.get(id);
+    const vid = getVariant(d, v).id;
+    return ok(deductionText(d, vid, store.deductInventory(d, vid)));
   }));
 
   server.registerTool('snapshot', { description: '儲存快照（大改之前建議先存）', inputSchema: { designId, name: z.string() } },

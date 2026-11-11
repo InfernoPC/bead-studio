@@ -1,5 +1,5 @@
 import { OpError } from './errors';
-import { bbox, countCodes, getVariant, type Design } from './model';
+import { bbox, countCodes, getVariant, type DesignCore } from './model';
 import type { Region } from './opSchema';
 
 // 圖例字元：絕不含數字（RLE 用）、"."（空格）、"_"（清除）
@@ -37,7 +37,7 @@ export function unrle(s: string, max = Infinity): string {
   return out;
 }
 
-export function encodeDesignText(d: Design, variantId?: string, region?: Region): string {
+export function encodeDesignText(d: DesignCore, variantId?: string, region?: Region): string {
   const v = getVariant(d, variantId);
   const head = `${d.cols}x${d.rows} margin=${d.board.margin} bead=${d.board.bead} locked=${d.shapeLocked} variant=${v.id} ${v.name}(${v.paletteMode})`;
   const holes = d.markers.filter((m) => m.type === 'hole').map((m) => `(${m.x},${m.y})`).join(' ');

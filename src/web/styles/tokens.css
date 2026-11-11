@@ -1,0 +1,55 @@
+/* 粉圓體（Huninn，OFL）自帶在套件裡：不向 Google Fonts 要字型，不擋住首次繪製。
+   依 unicode-range 分成很多小檔，瀏覽器只下載畫面上用到的字；font-display: swap 先用後備字型顯示 */
+@import '@fontsource/huninn/400.css';
+:root {
+  --paper: #F6EEDF; --card: #FFFDF8; --ink: #4A3A2E; --ink-soft: #725D4E;
+  --board: #EADBC4; --peg: #D9C6A6; --peach: #E8A87C; --alert: #B5402F;
+  --inspect: #F2C14E; /* 檢查器標出問題格子的黃圈 */
+  --canvas-dim: #4A3A2E; /* 高亮時蓋在其他格子上的暗化色（亮暗都要「變暗」，所以暗色不能用 --ink） */
+  /* 編輯區 canvas 的板面（底色、板子、釘子、格線與 core/render UI 相同；尺規數字加深到 AA 對比，
+     伺服器匯出的 PNG 不受影響、固定用 core 的亮色）；canvas 讀不懂 var()／color-mix，這裡只能放實際色值。
+     --canvas-rim：豆子外圈的淡色描邊，只在暗色時設定（黑豆在暗板上才看得清楚），亮色留空＝不畫 */
+  --canvas-bg: #FBF6EE; --canvas-board: #EFE3D0; --canvas-peg: #E2D2BA;
+  --canvas-board-edge: #D9C6A8; /* 3D 實體預覽：釘板的側面厚度 */
+  --canvas-ruler: #7F6A59; --canvas-guide: rgba(156, 134, 112, 0.3); --canvas-rim: ;
+  /* 色票豆盒：豆子落在格子底的影子（canvas 用實際色值）；透明豆畫成淡藍灰（豆色，不隨主題改變） */
+  --tray-bead-shadow: rgba(74, 58, 46, 0.24); --bead-clear: #C9D5DE;
+  --tray-missing-mix: 50%; /* 沒有的顏色，色條填色保留的比例 */
+  --line: color-mix(in srgb, var(--ink) 14%, transparent);
+  --shadow: 0 1px 3px color-mix(in srgb, var(--ink) 18%, transparent);
+  /* 分段控制選中的那一段：比軌道浮起來的顏色 */
+  --seg-on: var(--card);
+  /* --peach 上的文字：選取中的底色亮暗都一樣，文字也固定用深色 */
+  --on-peach: #4A3A2E;
+  /* 下拉選單與對話框的陰影、對話框後面的遮罩 */
+  --shadow-pop: 0 0 0 1px var(--line), 0 8px 24px color-mix(in srgb, var(--ink) 16%, transparent);
+  --shadow-modal: 0 16px 48px color-mix(in srgb, var(--ink) 22%, transparent);
+  --backdrop: color-mix(in srgb, var(--ink) 28%, transparent);
+  --r-sm: 8px; --r-md: 14px; --r-lg: 20px;
+  --font: "Huninn", "PingFang TC", "Noto Sans TC", sans-serif;
+  --fs-xs: 12px; --fs-sm: 13px; --fs-md: 15px; --fs-lg: 18px; --fs-xl: 22px;
+}
+/* 暗色：「夜裡的手作桌」——溫暖的可可色，不是純黑或冷灰。只重新定義同一組 token，
+   元件不另寫暗色樣式；豆子顏色來自色票，不隨主題改變 */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #2A221C; --card: #352B24; --ink: #F1E6D6; --ink-soft: #B8A693;
+  --board: #3D3229; --peg: #57483A; --peach: #E8A87C; --alert: #E57A66;
+  --inspect: #F2C14E; --canvas-dim: #120E0A;
+  --shadow: 0 1px 3px color-mix(in srgb, #000 35%, transparent);
+  --seg-on: color-mix(in srgb, var(--ink) 16%, var(--card));
+  --shadow-pop: 0 0 0 1px var(--line), 0 8px 24px color-mix(in srgb, #000 45%, transparent);
+  --shadow-modal: 0 0 0 1px var(--line), 0 16px 48px color-mix(in srgb, #000 50%, transparent);
+  --backdrop: color-mix(in srgb, #000 55%, transparent);
+  --canvas-bg: #30271F; --canvas-board: #4A3D32; --canvas-peg: #5E4E40; --canvas-board-edge: #3A2F26;
+  --canvas-ruler: #A8957F; --canvas-guide: rgba(241, 230, 214, 0.16);
+  --canvas-rim: rgba(241, 230, 214, 0.18);
+  --tray-bead-shadow: rgba(0, 0, 0, 0.45); --tray-missing-mix: 68%;
+}
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body { background: var(--paper); color: var(--ink); font-family: var(--font); font-size: var(--fs-md); }
+.num { font-variant-numeric: tabular-nums; }
+/* 鍵盤焦點用墨色；--peach 只留給「選取中」，不然焦點和選取分不出來 */
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

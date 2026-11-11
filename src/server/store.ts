@@ -4,8 +4,8 @@ import { join } from 'node:path';
 import { DEFAULT_CHECKS, type ChecksConfig } from '../core/checks';
 import { parseDesign } from '../core/designSchema';
 import { OpError } from '../core/errors';
-import { coreOf, createDesign, type Board, type Design, type DesignCore, type Snapshot } from '../core/model';
-import { Palette, validatePalette, type Inventory, type PaletteColor } from '../core/palette';
+import { coreOf, createDesign, getVariant, type Board, type Design, type DesignCore, type Snapshot } from '../core/model';
+import { Palette, planDeduction, validatePalette, type DeductionPlan, type Inventory, type PaletteColor } from '../core/palette';
 
 export type StoreOpts = { dataDir: string; configDir: string; historyLimit?: number };
 
@@ -19,6 +19,7 @@ const newId = (prefix: string) => `${prefix}-${Date.now().toString(36)}${Math.ra
 
 export class DesignStore extends EventEmitter {
   palette!: Palette;
+  paletteColors: PaletteColor[] = [];
   inventory: Inventory = {};
   checks: ChecksConfig = DEFAULT_CHECKS;
   currentId: string | null = null;
@@ -36,6 +37,7 @@ export class DesignStore extends EventEmitter {
     const errs = validatePalette(colors);
     if (errs.length) throw new Error(`palette.json 有誤：\n${errs.join('\n')}`);
     this.palette = new Palette(colors);
+    this.paletteColors = colors;
     const invPath = join(this.opts.dataDir, 'inventory.json');
     this.inventory = existsSync(invPath) ? JSON.parse(readFileSync(invPath, 'utf8')) : {};
     const chkPath = join(this.opts.configDir, 'checks.json');
@@ -125,6 +127,12 @@ export class DesignStore extends EventEmitter {
     return this.commit(prev, next);
   }
 
+  /** 可以復原／重做的步數（UI 用來停用按鈕；不影響 MCP 工具的輸出） */
+  historyDepth(id: string): { undo: number; redo: number } {
+    const h = this.history.get(id);
+    return { undo: h?.undo.length ?? 0, redo: h?.redo.length ?? 0 };
+  }
+
   undo(id?: string): Design {
     const cur = this.get(id);
     const h = this.hist(cur.id);
@@ -146,7 +154,10 @@ export class DesignStore extends EventEmitter {
   snapshot(id: string | undefined, name: string): Snapshot {
     const cur = this.get(id);
     const snap: Snapshot = { id: newId('s'), name, at: new Date().toISOString(), design: coreOf(cur) };
-    this.save({ ...cur, snapshots: [...cur.snapshots, snap] });
+    const next = { ...cur, snapshots: [...cur.snapshots, snap] };
+    this.save(next);
+    // 快照不算一步修改（版本不變），但開著的瀏覽器要看到新的快照清單
+    this.emit('change', next);
     return snap;
   }
 
@@ -164,8 +175,36 @@ export class DesignStore extends EventEmitter {
       const prev = inv[it.code] ?? { owned: false, count: 0 };
       inv[it.code] = { owned: it.owned ?? prev.owned, count: it.count ?? prev.count };
     }
+    this.writeInventory(inv);
+    return inv;
+  }
+
+  private writeInventory(inv: Inventory) {
     this.inventory = inv;
     writeJsonAtomic(join(this.opts.dataDir, 'inventory.json'), inv);
-    return inv;
+    this.emit('meta');
+  }
+
+  /** 做完作品：擁有的顏色扣掉這個版本的用量（最少到 0），未擁有的不動。庫存不在作品的復原紀錄裡 */
+  deductInventory(design: Design, variant?: string): DeductionPlan {
+    const plan = planDeduction(getVariant(design, variant).cells, this.inventory);
+    if (plan.deducted.length === 0) return plan;
+    const inv = structuredClone(this.inventory);
+    for (const r of plan.deducted) inv[r.code] = { ...inv[r.code], count: r.after };
+    this.writeInventory(inv);
+    return plan;
+  }
+
+  setCalibration(code: string, hex: string | null): void {
+    if (!this.palette.has(code)) throw new OpError('unknown_color', `未知色號 ${code}`);
+    if (hex !== null && !/^#[0-9A-Fa-f]{6}$/.test(hex)) throw new OpError('bad_hex', `色碼格式錯誤：${hex}（例如 #E8434F）`);
+    const path = join(this.opts.dataDir, 'palette.json');
+    const colors: PaletteColor[] = JSON.parse(readFileSync(path, 'utf8'));
+    const c = colors.find((x) => x.code === code)!;
+    if (hex === null) delete c.calibratedHex; else c.calibratedHex = hex.toUpperCase();
+    writeJsonAtomic(path, colors);
+    this.palette = new Palette(colors);
+    this.paletteColors = colors;
+    this.emit('meta');
   }
 }

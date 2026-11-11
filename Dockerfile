@@ -11,6 +11,8 @@ COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY tsconfig.json ./
 COPY src ./src
+COPY vite.config.ts ./
+RUN pnpm build:web
 
 ENV BEADS_HOST=0.0.0.0 \
     PORT=5174

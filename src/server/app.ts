@@ -1,8 +1,15 @@
 import Fastify from 'fastify';
+import fastifyStatic from '@fastify/static';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+import websocket from '@fastify/websocket';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { OpError } from '../core/errors';
+import { toClientDesign, type Design } from '../core/model';
 import { buildMcpServer, type Vision } from './mcp';
 import type { PathOpts } from './paths';
+import { importImageBuffer } from './importBuffer';
+import { createToolClient } from './toolClient';
 import { embedDesign } from './pngmeta';
 import { renderPng, type View } from './render';
 import type { DesignStore } from './store';
@@ -19,8 +26,13 @@ function hostOf(origin: string): string | null {
   try { return new URL(origin).host.toLowerCase() || null; } catch { return null; }
 }
 
-export function buildApp(store: DesignStore, opts: AppOpts = {}) {
+export async function buildApp(store: DesignStore, opts: AppOpts = {}) {
   const app = Fastify({ logger: false });
+  const tools = await createToolClient(store, opts);
+  app.addHook('onClose', async () => { await tools.close(); });
+
+  // 必須先於 Host/Origin 檢查註冊：其 onRequest 標記 upgrade 請求，onResponse 才會在被拒（403）時銷毀 socket
+  await app.register(websocket);
 
   // 防 DNS rebinding／跨站請求：Host 與 Origin 都必須是本機或明確允許的主機
   const extra = (opts.allowedHosts ?? []).map((h) => h.trim().toLowerCase()).filter(Boolean);
@@ -36,6 +48,20 @@ export function buildApp(store: DesignStore, opts: AppOpts = {}) {
     if (!host || !allowed.has(host) || (origin !== undefined && !allowed.has(hostOf(origin) ?? ''))) {
       return reply.code(403).send({ error: '拒絕存取：不允許的 Host 或 Origin' });
     }
+  });
+
+  const sockets = new Set<import('ws').WebSocket>();
+  const send = (msg: unknown) => { const s = JSON.stringify(msg); for (const ws of sockets) if (ws.readyState === 1) ws.send(s); };
+  // 快照只送清單資訊（toClientDesign）：完整的快照內容很大，瀏覽器也用不到，還原時用 id 呼叫 restore_snapshot
+  const onChange = (design: Design) => send({ type: 'design', design: toClientDesign(design), history: store.historyDepth(design.id) });
+  const onMeta = () => send({ type: 'meta' });
+  store.on('change', onChange);
+  store.on('meta', onMeta);
+  app.addHook('onClose', async () => { store.off('change', onChange); store.off('meta', onMeta); for (const s of sockets) s.terminate(); });
+  app.get('/ws', { websocket: true }, (socket) => {
+    sockets.add(socket);
+    socket.send(JSON.stringify({ type: 'hello' }));
+    socket.on('close', () => sockets.delete(socket));
   });
 
   app.get('/health', async () => ({ ok: true }));
@@ -77,6 +103,34 @@ export function buildApp(store: DesignStore, opts: AppOpts = {}) {
       }
     },
   );
+
+  app.get('/api/state', async () => {
+    let current: Design | null = null;
+    try { current = store.get(); } catch { /* 尚未開啟作品 */ }
+    const port = (app.server.address() as any)?.port;
+    return {
+      designs: store.list(), current: current && toClientDesign(current), history: current ? store.historyDepth(current.id) : null, palette: store.paletteColors, inventory: store.inventory,
+      checks: store.checks, mcpUrl: `http://localhost:${port}/mcp`,
+    };
+  });
+
+  app.post<{ Params: { name: string }; Body: Record<string, unknown> }>('/api/tools/:name', async (req) =>
+    tools.call(req.params.name, (req.body ?? {}) as Record<string, unknown>));
+
+  app.addContentTypeParser('application/octet-stream', { parseAs: 'buffer', bodyLimit: 20 * 1024 * 1024 }, (_r, body, done) => done(null, body));
+  app.post<{ Querystring: { variant?: string; removeBg?: string; dither?: string } }>('/api/import', async (req) => {
+    try {
+      const text = await importImageBuffer(store, req.body as Buffer, {
+        variant: req.query.variant, removeBg: req.query.removeBg === '1', dither: req.query.dither === '1',
+      });
+      return { ok: true, text };
+    } catch (e) {
+      return { ok: false, text: e instanceof OpError ? `${e.code}: ${e.message}` : `圖片無法讀取：${(e as Error).message}` };
+    }
+  });
+
+  const webDir = resolve('dist/web');
+  if (existsSync(webDir)) await app.register(fastifyStatic, { root: webDir });
 
   return app;
 }

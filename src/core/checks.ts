@@ -1,6 +1,6 @@
 import { deltaE00 } from './color';
 import type { Pt } from './errors';
-import { countCodes, getVariant, type Design } from './model';
+import { countCodes, getVariant, type DesignCore } from './model';
 import type { Inventory, Palette } from './palette';
 
 export type ChecksConfig = { thinChainMin: number; holeMinNeighbors: number; minAdjacentDeltaE: number };
@@ -11,7 +11,7 @@ export type Issue = { id: IssueId; message: string; cells: Pt[] };
 const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
 export function runChecks(
-  d: Design, variantId: string | undefined,
+  d: DesignCore, variantId: string | undefined,
   ctx: { palette: Palette; inventory: Inventory; config: ChecksConfig },
 ): Issue[] {
   const v = getVariant(d, variantId);
