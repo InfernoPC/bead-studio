@@ -1,6 +1,5 @@
 import { z } from 'zod';
 
-const int = z.number().int();
 const coord = z.number().int().min(-2048).max(2048);
 const size = z.number().int().min(1).max(2048);
 const code = z.string().min(1);
@@ -21,10 +20,10 @@ export const OpSchema = z.discriminatedUnion('op', [
   z.object({ op: z.literal('rotate'), region: RegionSchema, turns: z.union([z.literal(1), z.literal(2), z.literal(3)]) }),
   z.object({ op: z.literal('outline'), target: code, color: code, side: z.enum(['outer', 'inner']), connect: z.union([z.literal(4), z.literal(8)]).optional() }),
   z.object({
-    op: z.literal('gradient'), target: code, region: RegionSchema.optional(), colors: z.array(code).min(2),
+    op: z.literal('gradient'), target: code, region: RegionSchema.optional(), colors: z.array(code).min(2).max(16),
     direction: z.union([z.enum(['h', 'v', 'radial']), z.number()]), dither: z.boolean().optional(),
   }),
-  z.object({ op: z.literal('shade'), target: code, light: Light, highlight: code, shadow: code, depth: int.positive().optional() }),
+  z.object({ op: z.literal('shade'), target: code, light: Light, highlight: code, shadow: code, depth: z.number().int().min(1).max(16).optional() }),
   z.object({ op: z.literal('set_hole'), x: coord, y: coord, remove: z.boolean().optional() }),
 ]);
 

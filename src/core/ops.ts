@@ -1,5 +1,6 @@
 import { allocate } from './allocate';
 import { OpError, type Pt } from './errors';
+import { gradient, outline, shade } from './effects';
 import { cloneDesign, countCodes, getVariant, maskFromCells, type Design, type Variant } from './model';
 import { OpSchema, type Op } from './opSchema';
 import { allowedCodes, stockCapacity, type Inventory, type Palette } from './palette';
@@ -81,10 +82,9 @@ function runOp(w: Work, op: Op): void {
       if (!op.remove) w.markers.push({ type: 'hole', x: op.x, y: op.y });
       return;
     }
-    case 'outline':
-    case 'gradient':
-    case 'shade':
-      throw new OpError('unsupported', `第 ${w.opIndex} 條指令：${op.op} 尚未支援`, w.opIndex);
+    case 'outline': return outline(w, op);
+    case 'gradient': return gradient(w, op);
+    case 'shade': return shade(w, op);
   }
 }
 
