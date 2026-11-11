@@ -7,7 +7,10 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createCanvas } from '@napi-rs/canvas';
 import { DesignStore } from '../src/server/store';
 import { buildMcpServer, type Vision } from '../src/server/mcp';
-import { extractDesign } from '../src/server/pngmeta';
+import { embedDesign, extractDesign } from '../src/server/pngmeta';
+import { renderPng } from '../src/server/render';
+import { createDesign } from '../src/core/model';
+import { palette } from './fixtures';
 import { FIX_COLORS } from './fixtures';
 
 let dir: string;
@@ -152,6 +155,47 @@ describe('MCP tools', () => {
     expect(r.text).toMatch(/bad_path/);
     const ok = await text('export_png', { path: join(dir, 'UP.PNG') });
     expect(ok.ok).toBe(true);
+  });
+
+  it('import_image restores metadata missing markers/snapshots and the result is editable', async () => {
+    const { text } = await connect();
+    const { markers: _m, snapshots: _s, ...rest } = createDesign({ id: 'x', name: '舊格式', board: { widthMm: 50, heightMm: 50, bead: 5, margin: 1 } });
+    const p = join(dir, 'old.png');
+    writeFileSync(p, embedDesign(await renderPng(createDesign({ id: 'x', name: 'x', board: rest.board }), palette, {}), rest as any));
+    const r = await text('import_image', { path: p });
+    expect(r.text).toMatch(/還原/);
+    const a = await text('apply_ops', { ops: [{ op: 'rect', x: 2, y: 2, w: 1, h: 1, color: 'A1' }, { op: 'set_hole', x: 0, y: 0 }] });
+    expect(a.ok).toBe(true);
+    expect(store.get().markers).toEqual([{ type: 'hole', x: 0, y: 0 }]);
+  });
+
+  it('import_image falls back to conversion with a notice when metadata uses unknown colors', async () => {
+    const { text } = await connect();
+    await text('new_design', NEW);
+    const bad = createDesign({ id: 'x', name: '外來', board: { widthMm: 50, heightMm: 50, bead: 5, margin: 1 } });
+    bad.variants[0].cells[0] = 'ZZ9';
+    bad.mask = '1' + bad.mask.slice(1);
+    const p = join(dir, 'foreign.png');
+    writeFileSync(p, embedDesign(await renderPng(createDesign({ id: 'x', name: 'x', board: bad.board }), palette, {}), bad));
+    const before = store.list().length;
+    const r = await text('import_image', { path: p });
+    expect(r.ok).toBe(true);
+    expect(r.text).toMatch(/metadata/);
+    expect(r.text).toMatch(/轉換/);
+    expect(store.list().length).toBe(before);
+  });
+
+  it('import_image checks the shape lock before converting', async () => {
+    const { text } = await connect();
+    await text('new_design', NEW);
+    await text('set_variant_mode', { variant: 'v1', paletteMode: 'owned' });
+    await text('set_shape_lock', { locked: true });
+    const c = createCanvas(4, 4);
+    const p = join(dir, 'lock.png');
+    writeFileSync(p, await c.encode('png'));
+    const r = await text('import_image', { path: p });
+    expect(r.ok).toBe(false);
+    expect(r.text).toMatch(/shape_locked/);
   });
 
   it('import_image falls back to image conversion for a plain PNG', async () => {

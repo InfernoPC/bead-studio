@@ -13,7 +13,7 @@ import { applyOps, syncOtherVariants, type Summary } from '../core/ops';
 import { allowedCodes, stockCapacity } from '../core/palette';
 import { encodeDesignText } from '../core/textCodec';
 import { createVariant, recolorVariant, selectVariant } from '../core/variants';
-import { embedDesign, extractDesign } from './pngmeta';
+import { embedDesign, extractDesign, hasDesignMeta } from './pngmeta';
 import { renderPng, type View } from './render';
 import type { DesignStore } from './store';
 
@@ -169,21 +169,27 @@ export function buildMcpServer(store: DesignStore, opts: { vision?: Vision } = {
     inputSchema: { path: z.string(), designId, variant, removeBg: z.boolean().default(false), dither: z.boolean().default(false) },
   }, wrap(async ({ path, designId: id, variant: v, removeBg, dither }) => {
     const buf = readFileSync(path);
+    const known = (cells: (string | null)[]) => cells.every((c) => c === null || store.palette.has(c));
     const meta = extractDesign(buf);
-    if (meta) { const d = store.importDesign(meta); return ok(`已從 PNG metadata 還原作品 ${d.id}「${d.name}」`); }
+    if (meta && meta.variants.every((x) => known(x.cells))) {
+      meta.snapshots = meta.snapshots.filter((s) => s.design.variants.every((x) => known(x.cells)));
+      const d = store.importDesign(meta);
+      return ok(`已從 PNG metadata 還原作品 ${d.id}「${d.name}」`);
+    }
+    const notice = hasDesignMeta(buf) ? '⚠ PNG 內的 bead-studio metadata 無效或含有目前色表沒有的色號，已改用一般圖片轉換\n' : '';
     const img = await loadImage(buf);
     const c = createCanvas(img.width, img.height);
     const ctx = c.getContext('2d');
     ctx.drawImage(img, 0, 0);
     const rgba = ctx.getImageData(0, 0, img.width, img.height).data;
     const d = store.update(id, (cur) => {
+      if (cur.shapeLocked) throw new OpError('shape_locked', '形狀已鎖定，無法導入圖片（會改變豆子位置）');
       const target = getVariant(cur, v);
       const allowed = store.palette.entries(allowedCodes(store.palette, store.inventory, target.paletteMode)).filter((e) => !e.transparent);
       const cells = imageToCells(rgba, img.width, img.height, {
         cols: cur.cols, rows: cur.rows, margin: cur.board.margin, allowed, removeBg, dither,
         capacity: target.paletteMode === 'stock' ? stockCapacity(store.inventory) : undefined,
       });
-      if (cur.shapeLocked) throw new OpError('shape_locked', '形狀已鎖定，無法導入圖片（會改變豆子位置）');
       const next = structuredClone(cur);
       const tv = getVariant(next, target.id);
       tv.cells = cells;
@@ -193,7 +199,7 @@ export function buildMcpServer(store: DesignStore, opts: { vision?: Vision } = {
       return next;
     });
     const n = getVariant(d, v).cells.filter(Boolean).length;
-    return ok(`已轉換圖片到 ${d.name}：${n} 顆豆子\n檢查：\n${checksText(d.id, v)}`);
+    return ok(`${notice}已轉換圖片到 ${d.name}：${n} 顆豆子\n檢查：\n${checksText(d.id, v)}`);
   }));
 
   server.registerTool('export_png', {

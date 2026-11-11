@@ -1,6 +1,7 @@
 import zlib from 'node:zlib';
 import extract from 'png-chunks-extract';
 import encode from 'png-chunks-encode';
+import { parseDesign } from '../core/designSchema';
 import type { Design } from '../core/model';
 
 const KEY = 'bead-studio';
@@ -18,22 +19,24 @@ export function embedDesign(png: Buffer, d: Design): Buffer {
   return Buffer.from(encode(chunks));
 }
 
-function isDesign(x: any): x is Design {
-  return x && Number.isInteger(x.cols) && x.cols > 0 && Number.isInteger(x.rows) && x.rows > 0 && typeof x.mask === 'string'
-    && x.mask.length === x.cols * x.rows && Array.isArray(x.variants) && x.variants.length > 0
-    && x.variants.every((v: any) => Array.isArray(v.cells) && v.cells.length === x.cols * x.rows);
+function metaChunk(png: Buffer): Uint8Array | null {
+  for (const c of extract(png)) if (c.name === 'zTXt' && keywordOf(c.data) === KEY) return c.data;
+  return null;
 }
 
+/** PNG 是否帶有 bead-studio metadata（不論內容是否有效） */
+export function hasDesignMeta(png: Buffer): boolean {
+  try { return metaChunk(png) !== null; } catch { return false; }
+}
+
+/** 讀出並驗證 metadata 中的設計（缺少的 markers/snapshots 補預設值）；沒有或無效時回傳 null */
 export function extractDesign(png: Buffer): Design | null {
   try {
-    for (const c of extract(png)) {
-      if (c.name !== 'zTXt' || keywordOf(c.data) !== KEY) continue;
-      const start = c.data.indexOf(0) + 2;
-      const d = JSON.parse(zlib.inflateSync(c.data.subarray(start), { maxOutputLength: MAX_META_BYTES }).toString('utf8'));
-      return isDesign(d) ? d : null;
-    }
+    const data = metaChunk(png);
+    if (!data) return null;
+    const start = data.indexOf(0) + 2;
+    return parseDesign(JSON.parse(zlib.inflateSync(data.subarray(start), { maxOutputLength: MAX_META_BYTES }).toString('utf8')));
   } catch {
     return null;
   }
-  return null;
 }
