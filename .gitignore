@@ -1,3 +1,7 @@
 .superpowers/
 node_modules/
 dist/
+data/designs/
+data/state.json
+data/inventory.json
+*.tmp

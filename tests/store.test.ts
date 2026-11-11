@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mkdtempSync, writeFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -80,5 +80,20 @@ describe('DesignStore', () => {
   });
   it('get without a current design throws', () => {
     expect(() => mkStore().get()).toThrow(/沒有開啟中的作品/);
+  });
+  it('skips unreadable or invalid design files with a warning instead of failing to start', () => {
+    const s = mkStore();
+    const d = s.create('好的', board);
+    writeFileSync(join(dir, 'data/designs/broken.json'), '{ not json');
+    writeFileSync(join(dir, 'data/designs/wrong.json'), JSON.stringify({ id: 'wrong', cols: 2 }));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const s2 = mkStore();
+      expect(s2.list().map((x) => x.id)).toEqual([d.id]);
+      expect(warn).toHaveBeenCalledTimes(2);
+      expect(String(warn.mock.calls[0][0])).toMatch(/略過/);
+    } finally {
+      warn.mockRestore();
+    }
   });
 });

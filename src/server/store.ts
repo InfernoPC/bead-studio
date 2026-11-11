@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events';
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DEFAULT_CHECKS, type ChecksConfig } from '../core/checks';
+import { parseDesign } from '../core/designSchema';
 import { OpError } from '../core/errors';
 import { coreOf, createDesign, type Board, type Design, type DesignCore, type Snapshot } from '../core/model';
 import { Palette, validatePalette, type Inventory, type PaletteColor } from '../core/palette';
@@ -42,8 +43,13 @@ export class DesignStore extends EventEmitter {
     this.designs.clear();
     for (const f of readdirSync(this.designDir)) {
       if (!f.endsWith('.json')) continue;
-      const d: Design = JSON.parse(readFileSync(join(this.designDir, f), 'utf8'));
-      this.designs.set(d.id, d);
+      try {
+        const d = parseDesign(JSON.parse(readFileSync(join(this.designDir, f), 'utf8')));
+        if (!d) throw new Error('格式不符');
+        this.designs.set(d.id, d);
+      } catch (e) {
+        console.warn(`略過無法讀取的設計檔 ${f}：${(e as Error).message}`);
+      }
     }
     const state = existsSync(this.statePath) ? JSON.parse(readFileSync(this.statePath, 'utf8')) : {};
     this.currentId = state.currentId && this.designs.has(state.currentId) ? state.currentId : null;

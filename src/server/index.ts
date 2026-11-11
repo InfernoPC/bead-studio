@@ -1,14 +1,16 @@
 import { buildApp } from './app';
-import type { Vision } from './mcp';
+import { parseEnv, type ServerConfig } from './config';
 import { DesignStore } from './store';
 
-const store = new DesignStore({
-  dataDir: process.env.BEADS_DATA_DIR ?? 'data',
-  configDir: process.env.BEADS_CONFIG_DIR ?? 'config',
-});
+let cfg: ServerConfig;
+try {
+  cfg = parseEnv(process.env);
+} catch (e) {
+  console.error(`設定錯誤：${(e as Error).message}`);
+  process.exit(1);
+}
+const store = new DesignStore({ dataDir: cfg.dataDir, configDir: cfg.configDir });
 store.load();
-const port = Number(process.env.PORT ?? 5174);
-const allowedHosts = (process.env.BEADS_ALLOWED_HOSTS ?? '').split(',').map((h) => h.trim()).filter(Boolean);
-const app = buildApp(store, { vision: (process.env.BEADS_VISION as Vision) ?? 'auto', allowedHosts });
-await app.listen({ port, host: '127.0.0.1' });
-console.log(`🫘 Bead Studio: http://localhost:${port}  (MCP: http://localhost:${port}/mcp)`);
+const app = buildApp(store, { vision: cfg.vision, allowedHosts: cfg.allowedHosts });
+await app.listen({ port: cfg.port, host: '127.0.0.1' });
+console.log(`🫘 Bead Studio: http://localhost:${cfg.port}  (MCP: http://localhost:${cfg.port}/mcp)`);
