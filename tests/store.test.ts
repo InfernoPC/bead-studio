@@ -20,7 +20,7 @@ beforeEach(() => {
   mkdirSync(join(dir, 'data'));
   mkdirSync(join(dir, 'config'));
   writeFileSync(join(dir, 'data/palette.json'), JSON.stringify(FIX_COLORS));
-  writeFileSync(join(dir, 'config/checks.json'), JSON.stringify({ thinChainMin: 5, holeMinNeighbors: 3, minAdjacentDeltaE: 10 }));
+  writeFileSync(join(dir, 'config/checks.json'), JSON.stringify({ thinChainMin: 5, holeMinNeighbors: 4, holeMaxInset: 1, minAdjacentDeltaE: 10 }));
 });
 
 describe('DesignStore', () => {
