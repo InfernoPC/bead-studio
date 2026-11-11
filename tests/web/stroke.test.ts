@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { strokeToPaste, interpolate } from '../../src/web/lib/stroke';
+import { strokeToPaste, interpolate, ellipseFromDrag } from '../../src/web/lib/stroke';
 
 describe('strokeToPaste', () => {
   it('strokeToPaste emits a single paste op', () => {
@@ -19,5 +19,17 @@ describe('strokeToPaste', () => {
   });
   it('interpolates without gaps', () => {
     expect(interpolate([0, 0], [3, 0])).toEqual([[0, 0], [1, 0], [2, 0], [3, 0]]);
+  });
+});
+
+describe('ellipseFromDrag', () => {
+  it('uses the dragged corners as the bounding box in any direction', () => {
+    expect(ellipseFromDrag([5, 2], [1, 8], 'A1', {})).toEqual({ op: 'ellipse', x: 1, y: 2, w: 5, h: 7, color: 'A1', fill: false });
+  });
+  it('makes a perfect circle with circle: true, growing toward the pointer', () => {
+    expect(ellipseFromDrag([5, 5], [2, 9], 'A1', { circle: true })).toEqual({ op: 'ellipse', x: 1, y: 5, w: 5, h: 5, color: 'A1', fill: false });
+  });
+  it('fills when asked', () => {
+    expect(ellipseFromDrag([0, 0], [0, 0], 'B2', { filled: true })).toEqual({ op: 'ellipse', x: 0, y: 0, w: 1, h: 1, color: 'B2', fill: true });
   });
 });

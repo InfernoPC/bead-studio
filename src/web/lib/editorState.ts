@@ -1,7 +1,11 @@
 import type { ClientDesign as Design } from '../../core/model';
 
-export type Tool = 'pen' | 'eraser' | 'fill' | 'eyedropper' | 'line' | 'replace' | 'hole';
-export type Pending = { baseVersion: number; design: Design };
+export type Tool = 'pen' | 'eraser' | 'fill' | 'eyedropper' | 'line' | 'ellipse' | 'replace' | 'hole';
+/**
+ * 樂觀預覽。ops／variant 讓伺服器在中途有新版本（例如 AI 修改）時能把這一筆重新套上去，
+ * 不用先丟掉預覽；commitVersion 是送出後伺服器回報的版本，伺服器追上它才換回伺服器的設計。
+ */
+export type Pending = { baseVersion: number; design: Design; ops?: unknown[]; variant?: string; commitVersion?: number };
 export type EditorState = {
   tool: Tool; color: string | null; recent: string[]; zoom: number; mirror: boolean;
   highlightCode: string | null; highlightCells: [number, number][] | null; pending: Pending | null;
@@ -14,6 +18,7 @@ export type EditorAction =
   | { type: 'highlightCode'; code: string | null }
   | { type: 'highlightCells'; cells: [number, number][] | null }
   | { type: 'preview'; pending: Pending }
+  | { type: 'commitPreview'; version: number }
   | { type: 'clearPreview' };
 
 export const MIN_ZOOM = 0.25;
@@ -35,5 +40,6 @@ export function reduceEditor(s: EditorState, a: EditorAction): EditorState {
     case 'highlightCells': return { ...s, highlightCells: a.cells, highlightCode: a.cells ? null : s.highlightCode };
     case 'preview': return { ...s, pending: a.pending };
     case 'clearPreview': return { ...s, pending: null };
+    case 'commitPreview': return s.pending ? { ...s, pending: { ...s.pending, commitVersion: a.version } } : s;
   }
 }

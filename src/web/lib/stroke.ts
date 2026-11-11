@@ -20,3 +20,20 @@ export function strokeToPaste(cells: Cell[], color: string | null): Op | null {
 export function interpolate(a: Cell, b: Cell): Cell[] {
   return linePts(a[0], a[1], b[0], b[1]);
 }
+
+/**
+ * 拖曳畫圓：起點與目前格子是外框的兩個角（任何方向都可以）。
+ * circle：取較長的一邊做正圓，往指標的方向長；filled：實心，否則只畫外框。
+ */
+export function ellipseFromDrag(from: Cell, to: Cell, color: string, o: { circle?: boolean; filled?: boolean }): Op {
+  let dx = to[0] - from[0], dy = to[1] - from[1];
+  if (o.circle) {
+    const side = Math.max(Math.abs(dx), Math.abs(dy));
+    dx = (dx < 0 ? -1 : 1) * side;
+    dy = (dy < 0 ? -1 : 1) * side;
+  }
+  return {
+    op: 'ellipse', x: Math.min(from[0], from[0] + dx), y: Math.min(from[1], from[1] + dy),
+    w: Math.abs(dx) + 1, h: Math.abs(dy) + 1, color, fill: !!o.filled,
+  };
+}

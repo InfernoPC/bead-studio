@@ -8,3 +8,6 @@ export function isTyping(t: EventTarget | null): boolean {
 
 /** 快捷鍵提示裡的修飾鍵：Mac／iOS 是「⌘」，其他平台是「Ctrl+」 */
 export const MOD = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl+';
+
+/** Alt 鍵在 Mac 上叫 Option */
+export const ALT = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? 'Option' : 'Alt';

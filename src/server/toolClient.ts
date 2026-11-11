@@ -4,7 +4,8 @@ import { buildMcpServer, type Vision } from './mcp';
 import type { PathOpts } from './paths';
 import type { DesignStore } from './store';
 
-export type ToolResult = { ok: boolean; text: string; images: { data: string; mimeType: string }[] };
+/** version：修改設計的工具（apply_ops）回報套用後的版本 */
+export type ToolResult = { ok: boolean; text: string; images: { data: string; mimeType: string }[]; version?: number };
 
 export async function createToolClient(store: DesignStore, opts: { vision?: Vision } & PathOpts) {
   // UI 永遠要圖片，所以進程內 client 不吃 vision: off
@@ -22,6 +23,7 @@ export async function createToolClient(store: DesignStore, opts: { vision?: Visi
           ok: !r.isError,
           text: content.filter((c) => c.type === 'text').map((c) => c.text).join('\n'),
           images: content.filter((c) => c.type === 'image').map((c) => ({ data: c.data, mimeType: c.mimeType })),
+          ...(typeof r.structuredContent?.version === 'number' ? { version: r.structuredContent.version } : {}),
         };
       } catch (e) {
         return { ok: false, text: (e as Error).message, images: [] };

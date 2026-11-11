@@ -146,7 +146,8 @@ export function buildMcpServer(store: DesignStore, opts: { vision?: Vision } & P
   }, wrap(({ designId: id, variant: v, ops }) => {
     let summary!: Summary;
     const d = store.update(id, (cur) => { const r = applyOps(cur, ops, store.ctx(), v); summary = r.summary; return r.design; });
-    return ok(summaryText(summary, checksText(d.id, summary.variant)));
+    // structuredContent 的版本給網頁判斷「伺服器的設計已含這一筆」；AI 只看文字
+    return { ...ok(summaryText(summary, checksText(d.id, summary.variant))), structuredContent: { version: d.version } };
   }));
 
   server.registerTool('set_board', {

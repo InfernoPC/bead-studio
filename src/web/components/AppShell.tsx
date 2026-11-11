@@ -3,7 +3,7 @@ import type { StateSnapshot } from '../lib/api';
 import type { EditorAction, EditorState, Tool } from '../lib/editorState';
 import type { ConnState } from '../lib/serverState';
 import { getVariant } from '../../core/model';
-import { displayDesign } from '../lib/clientCore';
+import { displayDesign, makeCtx } from '../lib/clientCore';
 import { ChecksPanel, useIssues } from './ChecksPanel';
 import { BeadTray } from './BeadTray';
 import { BoardDialog } from './BoardDialog';
@@ -41,7 +41,8 @@ export function AppShell({ conn, snapshot, editor, dispatch, notice: importNotic
   const variantId = design?.activeVariant;
   useEffect(() => dispatch({ type: 'highlightCells', cells: null }), [designId, variantId, dispatch]);
   // 用量跟著畫面走：筆畫送出、伺服器還沒回應前也算進去
-  const shown = displayDesign(design, editor.pending);
+  const opCtx = useMemo(() => (snapshot ? makeCtx(snapshot) : undefined), [snapshot?.palette, snapshot?.inventory]);
+  const shown = useMemo(() => displayDesign(design, editor.pending, opCtx), [design, editor.pending, opCtx]);
   const variant = shown ? getVariant(shown) : null;
   const issues = useIssues(shown, snapshot?.palette, snapshot?.inventory, snapshot?.checks);
   // 建立新作品（作品選單、空狀態）與面板設定（狀態列的尺寸）對話框
