@@ -20,7 +20,7 @@ export function SidePanel({ titles, meta, ...slots }: Props) {
         <section key={key} className="panel" aria-labelledby={`panel-${key}`}>
           <div className="panel-head">
             <h2 id={`panel-${key}`} className="panel-title">{titles?.[key] ?? title}</h2>
-            {meta?.[key] && <span className="panel-meta">{meta[key]}</span>}
+            {meta?.[key] && <span className="panel-meta" aria-live="polite">{meta[key]}</span>}
           </div>
           {slots[key]}
         </section>

@@ -264,3 +264,15 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 @media (max-width: 599px) {
   .side { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ---- 檢查器 ---- */
+.checks-list { list-style: none; margin: 0 -6px; padding: 0; max-height: 220px; overflow-y: auto; scrollbar-width: thin; }
+.checks-row {
+  width: 100%; display: flex; align-items: flex-start; gap: 7px; padding: 5px 6px;
+  border: 0; border-radius: var(--r-sm); background: transparent; cursor: pointer;
+  color: var(--ink); font: inherit; font-size: var(--fs-xs); line-height: 1.5; text-align: left;
+}
+.checks-row:hover { background: color-mix(in srgb, var(--board) 40%, transparent); }
+.checks-row.is-active { background: color-mix(in srgb, var(--board) 70%, transparent); box-shadow: inset 0 0 0 1.5px var(--peach); }
+.checks-icon { flex: none; width: 15px; height: 15px; margin-top: 2px; color: var(--alert); }
+.checks-msg { min-width: 0; overflow-wrap: anywhere; }

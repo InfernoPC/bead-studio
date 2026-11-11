@@ -82,7 +82,7 @@ test('the usage panel counts beads, flags shortages, and toggles a single-color 
   await expect.poll(async () => (await current(page)).total).toBe(4);
 
   await expect(page.locator('#panel-usage')).toHaveText('用量（理想版）');
-  await expect(page.locator('.panel-meta')).toHaveText('共 4 顆');
+  await expect(page.locator('.panel-meta').filter({ hasText: /顆/ })).toHaveText('共 4 顆');
   const rows = page.locator('.usage-row');
   await expect(rows).toHaveCount(2);
   await expect(rows.nth(0)).toContainText('F2');
