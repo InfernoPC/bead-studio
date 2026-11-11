@@ -316,8 +316,6 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
         preview(base, ops); void send(base, ops);
         return;
       }
-      case 'select':
-        return; // 框選在之後的 task 加入
     }
   };
 
@@ -424,7 +422,7 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
   }, [onNotice]);
 
   const cursor = panning ? 'grabbing' : space ? 'grab' : !editable ? 'default'
-    : forbidden ? 'not-allowed' : editor.tool === 'select' ? 'default' : 'crosshair';
+    : forbidden ? 'not-allowed' : 'crosshair';
 
   return (
     <div

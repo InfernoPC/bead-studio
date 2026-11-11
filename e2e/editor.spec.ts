@@ -121,8 +121,8 @@ test('Space activates a focused button instead of starting a pan', async ({ page
 test('Space + drag over the stage pans', async ({ page }) => {
   await page.goto('/');
   const canvas = page.getByTestId('editor-canvas');
-  await expect(page.getByRole('button', { name: '框選' })).toBeEnabled();
-  await page.keyboard.press('v');
+  await expect(page.getByRole('button', { name: '吸管' })).toBeEnabled();
+  await page.keyboard.press('i'); // 吸管不會改作品，平移失敗時也不會畫到
   const box = (await canvas.boundingBox())!;
   const before = JSON.parse((await canvas.getAttribute('data-view'))!);
   await page.mouse.move(box.x + 200, box.y + 200);

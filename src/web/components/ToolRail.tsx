@@ -13,7 +13,6 @@ const TOOLS: ToolDef[] = [
   { tool: 'fill', label: '油漆桶', key: 'G', icon: <><path d="M4 9l5-5 6 6-5 5z" /><path d="M16 12.5c0 1.2.6 2 1 2.7a1 1 0 01-2 0c.4-.7 1-1.5 1-2.7z" /></> },
   { tool: 'eyedropper', label: '吸管', key: 'I', icon: <path d="M10.5 5.5l4 4M12.5 7.5l-7 7L4 16M12.8 5.2l1.5-1.5a1.5 1.5 0 012.1 2.1l-1.5 1.5" /> },
   { tool: 'line', label: '直線', key: 'L', icon: <><path d="M5.5 14.5l9-9" /><circle cx="4.5" cy="15.5" r="1.5" /><circle cx="15.5" cy="4.5" r="1.5" /></> },
-  { tool: 'select', label: '框選', key: 'V', icon: <path d="M4 4h12v12H4z" strokeDasharray="2.5 2" /> },
   { tool: 'replace', label: '全域換色', key: 'R', icon: <path d="M15 7.5A5.5 5.5 0 005 6M5 12.5A5.5 5.5 0 0015 14M5 3v3h3M15 17v-3h-3" /> },
   { tool: 'hole', label: '掛孔', key: 'H', icon: <><circle cx="10" cy="10" r="5.5" /><circle cx="10" cy="10" r="2" /></> },
 ];
