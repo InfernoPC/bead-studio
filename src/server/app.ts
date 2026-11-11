@@ -1,4 +1,7 @@
 import Fastify from 'fastify';
+import fastifyStatic from '@fastify/static';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import websocket from '@fastify/websocket';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { OpError } from '../core/errors';
@@ -123,6 +126,9 @@ export async function buildApp(store: DesignStore, opts: AppOpts = {}) {
       return { ok: false, text: e instanceof OpError ? `${e.code}: ${e.message}` : `圖片無法讀取：${(e as Error).message}` };
     }
   });
+
+  const webDir = resolve('dist/web');
+  if (existsSync(webDir)) await app.register(fastifyStatic, { root: webDir });
 
   return app;
 }
