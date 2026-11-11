@@ -122,6 +122,15 @@ describe('MCP tools', () => {
     expect(r.text.trim()).toBe('A1 紅 #E8434F 庫存200');
   });
 
+  it('caps board size and ops count', async () => {
+    const { text } = await connect();
+    expect((await text('new_design', { ...NEW, widthMm: 6000 })).ok).toBe(false);
+    await text('new_design', NEW);
+    expect((await text('set_board', { heightMm: 6000 })).ok).toBe(false);
+    const ops = Array.from({ length: 501 }, () => ({ op: 'set_hole', x: 0, y: 0 }));
+    expect((await text('apply_ops', { ops })).ok).toBe(false);
+  });
+
   it('set_board refuses to crop without force', async () => {
     const { text } = await connect();
     await text('new_design', NEW);

@@ -1,6 +1,26 @@
 import { describe, it, expect } from 'vitest';
 import { linePts, rectPts, ellipsePts, polygonPts, floodRegion, regionPts } from '../src/core/raster';
 
+// 舊的暴力法實作，作為 polygonPts 的對照組
+function polygonRef(points: [number, number][], fill: boolean): [number, number][] {
+  const set = new Map<string, [number, number]>();
+  const add = (p: [number, number]) => set.set(`${p[0]},${p[1]}`, p);
+  points.forEach((p, k) => { const q = points[(k + 1) % points.length]; linePts(p[0], p[1], q[0], q[1]).forEach(add); });
+  if (fill) {
+    const xs = points.map((p) => p[0]), ys = points.map((p) => p[1]);
+    for (let j = Math.min(...ys); j <= Math.max(...ys); j++)
+      for (let i = Math.min(...xs); i <= Math.max(...xs); i++) {
+        let inside = false;
+        for (let a = 0, b = points.length - 1; a < points.length; b = a++) {
+          const [xa, ya] = points[a], [xb, yb] = points[b];
+          if ((ya > j) !== (yb > j) && i < ((xb - xa) * (j - ya)) / (yb - ya) + xa) inside = !inside;
+        }
+        if (inside) add([i, j]);
+      }
+  }
+  return [...set.values()];
+}
+
 const key = (pts: [number, number][]) => pts.map(([x, y]) => `${x},${y}`).sort();
 
 describe('raster', () => {
@@ -34,5 +54,28 @@ describe('raster', () => {
   });
   it('clips regions to the grid', () => {
     expect(regionPts({ x: -1, y: -1, w: 3, h: 3 }, 5, 5)).toHaveLength(4);
+  });
+  it('polygon matches the brute-force reference on random shapes', () => {
+    let seed = 7;
+    const rnd = (n: number) => { seed = (seed * 1103515245 + 12345) % 2 ** 31; return (seed % (2 * n + 1)) - n; };
+    for (let t = 0; t < 200; t++) {
+      const pts = Array.from({ length: 3 + (t % 5) }, () => [rnd(12), rnd(12)] as [number, number]);
+      for (const fill of [true, false]) expect(key(polygonPts(pts, fill))).toEqual(key(polygonRef(pts, fill)));
+    }
+  });
+  it('clip keeps only in-grid points and counts the rest', () => {
+    const pts: [number, number][] = [[-3, -2], [9, 1], [4, 12], [-1, 6]];
+    const ref = polygonRef(pts, true);
+    const clip = { cols: 5, rows: 5, outside: 0 };
+    const got = polygonPts(pts, true, clip);
+    const inGrid = ref.filter(([x, y]) => x >= 0 && y >= 0 && x < 5 && y < 5);
+    expect(key(got)).toEqual(key(inGrid));
+    expect(clip.outside).toBe(ref.length - inGrid.length);
+    const rc = { cols: 5, rows: 5, outside: 0 };
+    expect(rectPts(3, 3, 4, 4, true, rc)).toHaveLength(4);
+    expect(rc.outside).toBe(12);
+    const ec = { cols: 3, rows: 3, outside: 0 };
+    const e = ellipsePts(0, 0, 5, 5, true, ec);
+    expect(e.length + ec.outside).toBe(ellipsePts(0, 0, 5, 5, true).length);
   });
 });

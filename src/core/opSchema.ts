@@ -1,5 +1,9 @@
 import { z } from 'zod';
 
+export const MAX_OPS = 500;
+/** 面板實體尺寸上限（mm）；2.6mm 豆約 1923 格 */
+export const MAX_BOARD_MM = 5000;
+
 const coord = z.number().int().min(-2048).max(2048);
 const size = z.number().int().min(1).max(2048);
 const code = z.string().min(1);

@@ -8,7 +8,7 @@ import { describeDesign } from '../core/describe';
 import { OpError } from '../core/errors';
 import { imageToCells } from '../core/importImage';
 import { getVariant, maskFromCells } from '../core/model';
-import { OpSchema, RegionSchema } from '../core/opSchema';
+import { MAX_BOARD_MM, MAX_OPS, OpSchema, RegionSchema } from '../core/opSchema';
 import { applyOps, syncOtherVariants, type Summary } from '../core/ops';
 import { allowedCodes, stockCapacity } from '../core/palette';
 import { encodeDesignText } from '../core/textCodec';
@@ -67,7 +67,7 @@ export function buildMcpServer(store: DesignStore, opts: { vision?: Vision } = {
   server.registerTool('new_design', {
     description: '建立新作品並開啟。尺寸以 mm 指定，格數自動換算 = floor(mm / bead)',
     inputSchema: {
-      name: z.string(), widthMm: z.number().positive(), heightMm: z.number().positive(),
+      name: z.string(), widthMm: z.number().positive().max(MAX_BOARD_MM), heightMm: z.number().positive().max(MAX_BOARD_MM),
       bead: z.union([z.literal(2.6), z.literal(5)]), margin: z.number().int().min(0).default(2),
     },
   }, wrap(({ name, widthMm, heightMm, bead, margin }) => {
@@ -120,7 +120,7 @@ export function buildMcpServer(store: DesignStore, opts: { vision?: Vision } = {
       'gradient{target,colors[],direction:h|v|radial|角度,region?,dither?}、shade{target,light:tl|t|tr|l|r|bl|b|br,highlight,shadow,depth?}、',
       'set_hole{x,y,remove?}',
     ].join(''),
-    inputSchema: { designId, variant, ops: z.array(OpSchema).min(1) },
+    inputSchema: { designId, variant, ops: z.array(OpSchema).min(1).max(MAX_OPS) },
   }, wrap(({ designId: id, variant: v, ops }) => {
     let summary!: Summary;
     const d = store.update(id, (cur) => { const r = applyOps(cur, ops, store.ctx(), v); summary = r.summary; return r.design; });
@@ -130,7 +130,7 @@ export function buildMcpServer(store: DesignStore, opts: { vision?: Vision } = {
   server.registerTool('set_board', {
     description: '改面板尺寸／豆子尺寸／留邊。換豆子尺寸時 keep: cells（保持格數）或 size（保持實體尺寸、重新取樣）。會裁掉豆子時需 force: true',
     inputSchema: {
-      designId, widthMm: z.number().positive().optional(), heightMm: z.number().positive().optional(),
+      designId, widthMm: z.number().positive().max(MAX_BOARD_MM).optional(), heightMm: z.number().positive().max(MAX_BOARD_MM).optional(),
       bead: z.union([z.literal(2.6), z.literal(5)]).optional(), margin: z.number().int().min(0).optional(),
       keep: z.enum(['cells', 'size']).default('size'), force: z.boolean().default(false),
     },

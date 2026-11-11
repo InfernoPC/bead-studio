@@ -53,6 +53,21 @@ describe('applyOps', () => {
     expect(cell(design, 9, 9)).toBe('A1');
   });
 
+  it('huge polygons clip without materializing off-grid cells', () => {
+    const t0 = Date.now();
+    const { summary } = applyOps(smallDesign(), [
+      { op: 'polygon', points: [[-2048, -2048], [2048, -2048], [2048, 2048], [-2048, 2048]], color: 'A1' },
+    ], ctxAll);
+    expect(Date.now() - t0).toBeLessThan(1500);
+    expect(summary.counts.A1).toBe(100);
+    expect(summary.clipped).toBe(4097 * 4097 - 100);
+  });
+
+  it('rejects more than 500 ops', () => {
+    const ops = Array.from({ length: 501 }, () => ({ op: 'set_hole', x: 0, y: 0 }));
+    expect(() => applyOps(smallDesign(), ops, ctxAll)).toThrow(/500/);
+  });
+
   it('atomic: a failing op leaves the original untouched', () => {
     const d0 = smallDesign();
     const before = JSON.stringify(d0);

@@ -2,9 +2,9 @@ import { matchCodes } from './allocate';
 import { OpError, type Pt } from './errors';
 import { gradient, outline, shade } from './effects';
 import { cloneDesign, countCodes, getVariant, maskFromCells, type Design, type Variant } from './model';
-import { OpSchema, type Op } from './opSchema';
+import { MAX_OPS, OpSchema, type Op } from './opSchema';
 import { allowedCodes, stockCapacity, type Inventory, type Palette } from './palette';
-import { ellipsePts, floodRegion, linePts, polygonPts, rectPts, regionPts } from './raster';
+import { ellipsePts, floodRegion, linePts, polygonPts, rectPts, regionPts, type Clip } from './raster';
 import { unrle } from './textCodec';
 import { checkColor, getCell, inGrid, setCell, type Work } from './work';
 
@@ -12,6 +12,7 @@ export type OpCtx = { palette: Palette; inventory: Inventory };
 export type Summary = { variant: string; total: number; counts: Record<string, number>; delta: Record<string, number>; clipped: number };
 
 function parseOps(raw: unknown[]): Op[] {
+  if (raw.length > MAX_OPS) throw new OpError('bad_op', `一次最多 ${MAX_OPS} 條指令（收到 ${raw.length} 條），請分批送出`);
   return raw.map((r, i) => {
     const res = OpSchema.safeParse(r);
     if (!res.success) {
@@ -23,6 +24,13 @@ function parseOps(raw: unknown[]): Op[] {
 }
 
 const paintPts = (w: Work, pts: Pt[], color: string) => pts.forEach(([x, y]) => setCell(w, x, y, color));
+/** 只產生格子內的點；格子外的直接計入 clipped */
+function paintClipped(w: Work, color: string, draw: (clip: Clip) => Pt[]) {
+  const clip: Clip = { cols: w.cols, rows: w.rows, outside: 0 };
+  const pts = draw(clip);
+  w.clipped += clip.outside;
+  paintPts(w, pts, color);
+}
 
 function runOp(w: Work, op: Op): void {
   switch (op.op) {
@@ -37,10 +45,10 @@ function runOp(w: Work, op: Op): void {
         setCell(w, op.x + i, op.y + j, code);
       }));
       return;
-    case 'rect': return paintPts(w, rectPts(op.x, op.y, op.w, op.h, op.fill ?? true), op.color);
-    case 'ellipse': return paintPts(w, ellipsePts(op.x, op.y, op.w, op.h, op.fill ?? true), op.color);
+    case 'rect': return paintClipped(w, op.color, (c) => rectPts(op.x, op.y, op.w, op.h, op.fill ?? true, c));
+    case 'ellipse': return paintClipped(w, op.color, (c) => ellipsePts(op.x, op.y, op.w, op.h, op.fill ?? true, c));
     case 'line': return paintPts(w, linePts(op.x1, op.y1, op.x2, op.y2), op.color);
-    case 'polygon': return paintPts(w, polygonPts(op.points, op.fill ?? true), op.color);
+    case 'polygon': return paintClipped(w, op.color, (c) => polygonPts(op.points, op.fill ?? true, c));
     case 'fill': {
       if (!inGrid(w, op.x, op.y)) throw new OpError('out_of_bounds', `第 ${w.opIndex} 條指令：起點 (${op.x},${op.y}) 在格子外`, w.opIndex);
       return paintPts(w, floodRegion(w.cols, w.rows, op.x, op.y, (x, y) => String(getCell(w, x, y))), op.color);
