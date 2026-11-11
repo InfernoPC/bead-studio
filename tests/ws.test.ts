@@ -41,6 +41,24 @@ describe('/ws', () => {
     expect(msgs.some((m) => m.type === 'meta')).toBe(true);
     ws.close();
   });
+  it('design messages and /api/state carry the undo / redo depth of that design', async () => {
+    const { ws, msgs } = open();
+    await until(() => msgs.length > 0);
+    const post = (n: string, b: object) => fetch(`${base}/api/tools/${n}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) });
+    const state = async () => (await (await fetch(`${base}/api/state`)).json()).history;
+    await post('new_design', { name: 'hist', widthMm: 50, heightMm: 50, bead: 5, margin: 1 });
+    await until(() => msgs.some((m) => m.type === 'design'));
+    expect(msgs.at(-1).history).toEqual({ undo: 0, redo: 0 });
+    expect(await state()).toEqual({ undo: 0, redo: 0 });
+    await post('apply_ops', { ops: [{ op: 'rect', x: 1, y: 1, w: 1, h: 1, color: 'A1' }] });
+    await until(() => msgs.at(-1).history?.undo === 1);
+    expect(msgs.at(-1).history).toEqual({ undo: 1, redo: 0 });
+    await post('undo', {});
+    await until(() => msgs.at(-1).history?.redo === 1);
+    expect(msgs.at(-1).history).toEqual({ undo: 0, redo: 1 });
+    expect(await state()).toEqual({ undo: 0, redo: 1 });
+    ws.close();
+  });
   it('rejects a foreign origin', async () => {
     const { ws } = open('http://evil.example');
     const code = await new Promise((r) => { ws.on('unexpected-response', (_q, res) => r(res.statusCode)); ws.on('error', () => {}); });

@@ -15,6 +15,14 @@
   --tray-missing-mix: 50%; /* 沒有的顏色，色條填色保留的比例 */
   --line: color-mix(in srgb, var(--ink) 14%, transparent);
   --shadow: 0 1px 3px color-mix(in srgb, var(--ink) 18%, transparent);
+  /* 分段控制選中的那一段：比軌道浮起來的顏色 */
+  --seg-on: var(--card);
+  /* --peach 上的文字：選取中的底色亮暗都一樣，文字也固定用深色 */
+  --on-peach: #4A3A2E;
+  /* 下拉選單與對話框的陰影、對話框後面的遮罩 */
+  --shadow-pop: 0 0 0 1px var(--line), 0 8px 24px color-mix(in srgb, var(--ink) 16%, transparent);
+  --shadow-modal: 0 16px 48px color-mix(in srgb, var(--ink) 22%, transparent);
+  --backdrop: color-mix(in srgb, var(--ink) 28%, transparent);
   --r-sm: 8px; --r-md: 14px; --r-lg: 20px;
   --font: "Huninn", "PingFang TC", "Noto Sans TC", sans-serif;
   --fs-xs: 12px; --fs-sm: 13px; --fs-md: 15px; --fs-lg: 18px; --fs-xl: 22px;
@@ -27,6 +35,10 @@
   --board: #3D3229; --peg: #57483A; --peach: #E8A87C; --alert: #E57A66;
   --inspect: #F2C14E; --canvas-dim: #120E0A;
   --shadow: 0 1px 3px color-mix(in srgb, #000 35%, transparent);
+  --seg-on: color-mix(in srgb, var(--ink) 16%, var(--card));
+  --shadow-pop: 0 0 0 1px var(--line), 0 8px 24px color-mix(in srgb, #000 45%, transparent);
+  --shadow-modal: 0 0 0 1px var(--line), 0 16px 48px color-mix(in srgb, #000 50%, transparent);
+  --backdrop: color-mix(in srgb, #000 55%, transparent);
   --canvas-bg: #30271F; --canvas-board: #4A3D32; --canvas-peg: #5E4E40; --canvas-board-edge: #3A2F26;
   --canvas-ruler: #A8957F; --canvas-guide: rgba(241, 230, 214, 0.16);
   --canvas-rim: rgba(241, 230, 214, 0.18);

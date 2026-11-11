@@ -127,6 +127,12 @@ export class DesignStore extends EventEmitter {
     return this.commit(prev, next);
   }
 
+  /** 可以復原／重做的步數（UI 用來停用按鈕；不影響 MCP 工具的輸出） */
+  historyDepth(id: string): { undo: number; redo: number } {
+    const h = this.history.get(id);
+    return { undo: h?.undo.length ?? 0, redo: h?.redo.length ?? 0 };
+  }
+
   undo(id?: string): Design {
     const cur = this.get(id);
     const h = this.hist(cur.id);

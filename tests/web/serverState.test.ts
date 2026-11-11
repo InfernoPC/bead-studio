@@ -22,6 +22,16 @@ describe('reduceServer', () => {
     expect(s2.snapshot!.designs.find((x) => x.id === 'other')).toMatchObject({ name: '改名', version: 1, current: false });
     expect(s2.snapshot!.current!.id).toBe(d1.id);
   });
+  it('takes the history depth from an accepted design event, not from a stale one', () => {
+    const withHist: ClientState = { conn: 'online', snapshot: { ...snap(d1), history: { undo: 2, redo: 0 } } as any };
+    const next = reduceServer(withHist, { type: 'design', design: { ...d1, version: 4 }, history: { undo: 1, redo: 1 } });
+    expect(next.snapshot!.history).toEqual({ undo: 1, redo: 1 });
+    const stale = reduceServer(withHist, { type: 'design', design: { ...d1, version: 2 }, history: { undo: 0, redo: 0 } });
+    expect(stale.snapshot!.history).toEqual({ undo: 2, redo: 0 });
+    const kept = reduceServer({ conn: 'online', snapshot: { ...snap({ ...d1, version: 5 }), history: { undo: 3, redo: 0 } } as any },
+      { type: 'snapshot', snapshot: { ...snap(d1), history: { undo: 0, redo: 0 } } as any });
+    expect(kept.snapshot!.history).toEqual({ undo: 3, redo: 0 });
+  });
   it('tracks connection state without touching data', () => {
     const s = reduceServer(base, { type: 'conn', conn: 'offline' });
     expect(s.conn).toBe('offline');

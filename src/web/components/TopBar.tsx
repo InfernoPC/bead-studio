@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import type { Design } from '../../core/model';
-import { callTool, toolError, type DesignSummary } from '../lib/api';
+import { callTool, toolError, type DesignSummary, type HistoryDepth } from '../lib/api';
 import { PREF_LABEL, useThemePref, type ThemePref } from '../lib/theme';
 import { DesignMenu } from './DesignMenu';
 import { ExportMenu } from './ExportMenu';
@@ -17,12 +17,12 @@ const THEME_ICON: Record<ThemePref, ReactNode> = {
 const MOD = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl+';
 
 type Props = {
-  design: Design | null; designs: DesignSummary[]; editable: boolean;
+  design: Design | null; designs: DesignSummary[]; history: HistoryDepth | null; editable: boolean;
   onNewDesign(): void;
 };
 
 /** 上方工具列：作品選單｜配色版本分頁｜形狀鎖定、復原／重做、快照、匯出｜外觀。伺服器拒絕時在工具列下方顯示提示條 */
-export function TopBar({ design, designs, editable, onNewDesign }: Props) {
+export function TopBar({ design, designs, history, editable, onNewDesign }: Props) {
   const [themePref, cycleTheme] = useThemePref();
   const themeLabel = `外觀：${PREF_LABEL[themePref]}`;
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +37,8 @@ export function TopBar({ design, designs, editable, onNewDesign }: Props) {
   }, []);
 
   const off = !editable;
+  // 沒有步驟可復原／重做：用 aria-disabled（按鈕還能保有焦點，按到最後一步時焦點不會掉出去）
+  const noUndo = history?.undo === 0, noRedo = history?.redo === 0;
   return (
     <header className="topbar">
       <span className="brand"><span className="brand-bead" aria-hidden="true" />拼豆工作室</span>
@@ -65,14 +67,14 @@ export function TopBar({ design, designs, editable, onNewDesign }: Props) {
           </div>
           <div className="topbar-group">
             <button
-              type="button" className="icon-btn" aria-label="復原" title={`復原（${MOD}Z）`} disabled={off}
-              onClick={() => void act('undo', { designId: design.id })}
+              type="button" className="icon-btn" aria-label="復原" title={`復原（${MOD}Z）`} disabled={off} aria-disabled={noUndo || undefined}
+              onClick={() => { if (!noUndo) void act('undo', { designId: design.id }); }}
             >
               <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7.5 5 4 8.5 7.5 12" /><path d="M4.5 8.5h7a4 4 0 0 1 0 8H9" /></svg>
             </button>
             <button
-              type="button" className="icon-btn" aria-label="重做" title={`重做（${MOD === '⌘' ? '⇧⌘Z' : 'Ctrl+Shift+Z'}）`} disabled={off}
-              onClick={() => void act('redo', { designId: design.id })}
+              type="button" className="icon-btn" aria-label="重做" title={`重做（${MOD === '⌘' ? '⇧⌘Z' : 'Ctrl+Shift+Z'}）`} disabled={off} aria-disabled={noRedo || undefined}
+              onClick={() => { if (!noRedo) void act('redo', { designId: design.id }); }}
             >
               <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 5 16 8.5 12.5 12" /><path d="M15.5 8.5h-7a4 4 0 0 0 0 8H11" /></svg>
             </button>

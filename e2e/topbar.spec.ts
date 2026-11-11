@@ -109,6 +109,8 @@ test('adding an 有的色 variant shows a second tab; tabs switch and change col
   await openDesign(page, '版本測試');
   const tabs = page.getByRole('tablist', { name: '配色版本' });
   await expect(tabs.getByRole('tab')).toHaveCount(1);
+  // 名稱已經說了範圍就不重複小字
+  await expect(tabs.getByRole('tab')).toHaveText('理想版');
   await page.getByRole('button', { name: '新增配色版本' }).click();
   const form = page.getByRole('dialog', { name: '新增配色版本' });
   await form.getByRole('button', { name: '有的色' }).click();
@@ -151,7 +153,7 @@ test('export links point at the server PNG with the chosen view and variant', as
   expect(await link.getAttribute('href')).toContain('view=3d&variant=v1');
 });
 
-test('snapshots save and restore; undo / redo buttons; errors show in a closable alert', async ({ page }) => {
+test('snapshots save and restore; undo / redo buttons follow the server history', async ({ page }) => {
   await openDesign(page, '快照測試');
   await tool(page, 'apply_ops', { ops: [{ op: 'paste', x: 4, y: 4, rows: ['aaa'], legend: { a: 'A1' } }] });
   await expect.poll(async () => (await current(page)).total).toBe(3);
@@ -175,14 +177,41 @@ test('snapshots save and restore; undo / redo buttons; errors show in a closable
   await confirm.getByRole('button', { name: '還原快照' }).click();
   await expect.poll(async () => (await current(page)).total).toBe(3);
 
-  await page.getByRole('button', { name: '復原' }).click();
+  const undo = page.getByRole('button', { name: '復原' }), redo = page.getByRole('button', { name: '重做' });
+  await expect(redo).toBeDisabled();
+  await undo.click();
   await expect.poll(async () => (await current(page)).total).toBe(0);
-  await page.getByRole('button', { name: '重做' }).click();
+  await expect(redo).toBeEnabled();
+  await redo.click();
   await expect.poll(async () => (await current(page)).total).toBe(3);
+  await expect(redo).toBeDisabled();
+  await expect(redo).toBeFocused(); // 停用後焦點仍在按鈕上
+  await redo.click({ force: true }); // 沒有步驟：安靜地不做事
+  await expect(page.getByRole('alert')).toHaveCount(0);
+});
 
-  await page.getByRole('button', { name: '重做' }).click();
+test('undo / redo are disabled on a fresh design; ⌘Z there is a silent no-op', async ({ page }) => {
+  await openDesign(page, '步驟測試');
+  const undo = page.getByRole('button', { name: '復原' }), redo = page.getByRole('button', { name: '重做' });
+  await expect(undo).toBeDisabled();
+  await expect(redo).toBeDisabled();
+  const undone = page.waitForResponse('**/api/tools/undo');
+  await page.keyboard.press('ControlOrMeta+z');
+  await page.keyboard.press('ControlOrMeta+Shift+z');
+  await undone; // 伺服器回 no_history，畫面不顯示任何提示
+  await expect(page.getByTestId('status-notice')).toHaveText('');
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await tool(page, 'apply_ops', { ops: [{ op: 'paste', x: 4, y: 4, rows: ['a'], legend: { a: 'A1' } }] });
+  await expect(undo).toBeEnabled();
+  await expect(redo).toBeDisabled();
+});
+
+test('a rejected top bar action shows the server text in a closable alert', async ({ page }) => {
+  await openDesign(page, '提示測試');
+  await page.route('**/api/tools/set_shape_lock', (route) => route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"boom"}' }));
+  await page.getByRole('group', { name: '形狀' }).getByRole('button', { name: '只換色' }).click();
   const alert = page.getByRole('alert');
-  await expect(alert).toContainText('沒有可以重做的步驟');
+  await expect(alert).toContainText('伺服器回應錯誤（500）：boom');
   await alert.getByRole('button', { name: '關閉提示' }).click();
   await expect(alert).toBeHidden();
 });

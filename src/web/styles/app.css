@@ -60,7 +60,7 @@
 .tool-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--board) 45%, var(--card)); }
 .tool-btn[aria-pressed="true"], .tool-btn[aria-pressed="true"]:hover:not(:disabled) { background: var(--peach); }
 .rail-divider { height: 1.5px; margin: 4px 8px; background: var(--line); }
-button:disabled { cursor: not-allowed; opacity: .45; }
+button:disabled, button[aria-disabled="true"] { cursor: not-allowed; opacity: .45; }
 
 /* 舞台 */
 .stage-column { display: flex; flex-direction: column; gap: 8px; min-width: 0; min-height: 0; }
@@ -100,7 +100,7 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .zoom { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; }
 .zoom-value { min-width: 4ch; text-align: center; color: var(--ink); }
 .icon-btn { width: 28px; height: 28px; border-radius: var(--r-sm); background: transparent; }
-.icon-btn:hover:not(:disabled) { background: var(--card); }
+.icon-btn:hover:not(:disabled):not([aria-disabled="true"]) { background: var(--card); }
 .icon-btn svg { width: 16px; height: 16px; }
 
 /* 右側面板 */
@@ -139,7 +139,7 @@ button:disabled { cursor: not-allowed; opacity: .45; }
   background: transparent; color: var(--ink-soft); font: inherit; font-size: var(--fs-xs);
 }
 .seg-btn:hover { color: var(--ink); }
-.seg-btn[aria-pressed="true"] { background: var(--card); color: var(--ink); box-shadow: var(--shadow); }
+.seg-btn[aria-pressed="true"] { background: var(--seg-on); color: var(--ink); box-shadow: var(--shadow); }
 
 .tray-search {
   display: flex; align-items: center; gap: 6px; padding: 0 10px; height: 32px;
@@ -364,9 +364,9 @@ button:disabled { cursor: not-allowed; opacity: .45; }
   background: color-mix(in srgb, var(--board) 70%, var(--card)); color: var(--ink); font: inherit; font-size: var(--fs-sm);
 }
 .variant-tab:hover:not(:disabled) { background: var(--board); }
-.variant-tab[aria-selected="true"], .variant-tab[aria-selected="true"]:hover:not(:disabled) { background: var(--peach); color: #4A3A2E; }
+.variant-tab[aria-selected="true"], .variant-tab[aria-selected="true"]:hover:not(:disabled) { background: var(--peach); color: var(--on-peach); }
 .variant-mode { font-size: var(--fs-xs); color: var(--ink-soft); }
-.variant-tab[aria-selected="true"] .variant-mode { color: color-mix(in srgb, #4A3A2E 78%, transparent); }
+.variant-tab[aria-selected="true"] .variant-mode { color: color-mix(in srgb, var(--on-peach) 78%, transparent); }
 
 /* 狀態列的尺寸文字＝開啟面板設定的按鈕 */
 .status-size {
@@ -389,10 +389,9 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .popover {
   position: fixed; z-index: 30; min-width: 200px; max-width: min(340px, calc(100vw - 16px));
   padding: 6px; border-radius: var(--r-md); background: var(--card); color: var(--ink);
-  box-shadow: 0 0 0 1px var(--line), 0 8px 24px color-mix(in srgb, var(--ink) 16%, transparent);
+  box-shadow: var(--shadow-pop);
   font-size: var(--fs-sm);
 }
-:root[data-theme="dark"] .popover { box-shadow: 0 0 0 1px var(--line), 0 8px 24px color-mix(in srgb, #000 45%, transparent); }
 .menu-group { display: flex; flex-direction: column; }
 .menu-scroll { max-height: 280px; overflow-y: auto; scrollbar-width: thin; }
 .menu-item {
@@ -442,11 +441,9 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .modal {
   width: min(420px, calc(100vw - 32px)); padding: 0; border: 0; border-radius: var(--r-lg);
   background: var(--card); color: var(--ink);
-  box-shadow: 0 16px 48px color-mix(in srgb, var(--ink) 22%, transparent);
+  box-shadow: var(--shadow-modal);
 }
-.modal::backdrop { background: color-mix(in srgb, var(--ink) 28%, transparent); }
-:root[data-theme="dark"] .modal { box-shadow: 0 16px 48px color-mix(in srgb, #000 50%, transparent), 0 0 0 1px var(--line); }
-:root[data-theme="dark"] .modal::backdrop { background: color-mix(in srgb, #000 55%, transparent); }
+.modal::backdrop { background: var(--backdrop); }
 .modal-body { padding: 20px 22px 18px; }
 .modal-body > form { display: flex; flex-direction: column; gap: 14px; }
 .modal-title { margin: 0 0 14px; font-size: var(--fs-lg); font-weight: 700; }

@@ -45,10 +45,12 @@ export function AppShell({ conn, snapshot, editor, dispatch }: Props) {
   const closeDialog = useCallback(() => setDialog(null), []);
   // 離線時不能改，開著的對話框也一併關掉
   useEffect(() => { if (!editable) setDialog(null); }, [editable]);
+  // 換作品（或作品不見了）時，開著的面板設定已經對不上，一併關掉；建立新作品的表單與目前作品無關，保留
+  useEffect(() => setDialog((d) => (d === 'board' ? null : d)), [designId]);
 
   return (
     <div className="shell">
-      <TopBar design={design} designs={snapshot?.designs ?? []} editable={editable} onNewDesign={() => setDialog('new')} />
+      <TopBar design={design} designs={snapshot?.designs ?? []} history={snapshot?.history ?? null} editable={editable} onNewDesign={() => setDialog('new')} />
       <OfflineBanner conn={conn} />
       <div className="workspace">
         <ToolRail tool={editor.tool} mirror={editor.mirror} disabled={!editable} onTool={setTool} onToggleMirror={toggleMirror} />

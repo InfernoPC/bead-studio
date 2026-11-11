@@ -1,6 +1,6 @@
 // 配色版本分頁：每個版本一個分頁（名稱＋色彩範圍小字），點選切換；
 // 右鍵或目前分頁旁的「⋯」改色彩範圍；「＋」開小表單建立新版本
-import { useId, useRef, useState, type KeyboardEvent, type RefObject } from 'react';
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type RefObject } from 'react';
 import type { Design } from '../../core/model';
 import type { PaletteMode } from '../../core/palette';
 import type { ToolResult } from '../lib/api';
@@ -28,6 +28,18 @@ export function VariantTabs({ design, disabled, act }: Props) {
   };
   const modeVariant = design.variants.find((v) => v.id === modeFor);
 
+  // 新建的版本：記下建立前已有的版本，等伺服器推來的設計裡出現新版本就切過去
+  const [awaitNew, setAwaitNew] = useState<Set<string> | null>(null);
+  useEffect(() => {
+    if (!awaitNew) return;
+    const added = design.variants.find((v) => !awaitNew.has(v.id));
+    if (!added) return;
+    setAwaitNew(null);
+    if (added.id !== design.activeVariant) void act('select_variant', { designId: design.id, variant: added.id });
+  }, [design, awaitNew, act]);
+  // 換作品就不再等
+  useEffect(() => setAwaitNew(null), [design.id]);
+
   // 方向鍵在分頁間移動焦點；Enter／空白鍵才切換（切換會寫入伺服器，不跟著焦點自動切）
   const onTabKey = (e: KeyboardEvent<HTMLButtonElement>) => {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
@@ -44,16 +56,19 @@ export function VariantTabs({ design, disabled, act }: Props) {
       <div ref={listRef} role="tablist" aria-label="配色版本" className="variant-tabs">
         {design.variants.map((v) => {
           const active = v.id === design.activeVariant;
+          // 名稱已經說了色彩範圍（例如「理想版」）就不再重複小字；範圍仍在 title 與「⋯」選單裡
+          const showMode = !v.name.includes(MODE_LABEL[v.paletteMode]);
           return (
             <button
               key={v.id} type="button" role="tab" aria-selected={active} tabIndex={active ? 0 : -1}
-              className="variant-tab" disabled={disabled} title="右鍵可以改色彩範圍"
+              className="variant-tab" disabled={disabled}
+              title={`色彩範圍：${MODE_LABEL[v.paletteMode]}（${MODE_HINT[v.paletteMode]}）。按右鍵可以更改`}
               onClick={() => { if (!active) void act('select_variant', { designId: design.id, variant: v.id }); }}
               onContextMenu={(e) => { e.preventDefault(); if (!disabled) openModeMenu(v.id, e.currentTarget); }}
               onKeyDown={onTabKey}
             >
               <span className="variant-name">{v.name}</span>
-              <span className="variant-mode">{MODE_LABEL[v.paletteMode]}</span>
+              {showMode && <span className="variant-mode">{MODE_LABEL[v.paletteMode]}</span>}
             </button>
           );
         })}
@@ -90,13 +105,18 @@ export function VariantTabs({ design, disabled, act }: Props) {
           ))}
         </Popover>
       )}
-      {add.open && <NewVariantForm design={design} act={act} anchor={add.trigger} onClose={add.close} />}
+      {add.open && (
+        <NewVariantForm
+          design={design} act={act} anchor={add.trigger} onClose={add.close}
+          onCreated={setAwaitNew}
+        />
+      )}
     </div>
   );
 }
 
-function NewVariantForm({ design, act, anchor, onClose }: {
-  design: Design; act: Act; anchor: RefObject<HTMLButtonElement | null>; onClose(returnFocus: boolean): void;
+function NewVariantForm({ design, act, anchor, onClose, onCreated }: {
+  design: Design; act: Act; anchor: RefObject<HTMLButtonElement | null>; onClose(returnFocus: boolean): void; onCreated(before: Set<string>): void;
 }) {
   const [name, setName] = useState('');
   const [mode, setMode] = useState<PaletteMode>('owned');
@@ -106,13 +126,12 @@ function NewVariantForm({ design, act, anchor, onClose }: {
 
   const create = async () => {
     if (busy.current) return; busy.current = true;
+    const before = new Set(design.variants.map((v) => v.id));
     const res = await act('create_variant', { designId: design.id, name: name.trim() || fallback, paletteMode: mode });
     busy.current = false;
     if (!res.ok) return;
     onClose(true);
-    // 建好就切過去看
-    const id = /版本\s*(v\d+)/.exec(res.text)?.[1];
-    if (id) void act('select_variant', { designId: design.id, variant: id });
+    onCreated(before); // 建好就切過去看
   };
 
   return (

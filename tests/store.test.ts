@@ -52,6 +52,16 @@ describe('DesignStore', () => {
     expect(s.get().mask[0]).toBe('1');
     expect(changes).toBe(3);
   });
+  it('reports undo / redo depth per design', () => {
+    const s = mkStore();
+    const d = s.create('x', board);
+    expect(s.historyDepth(d.id)).toEqual({ undo: 0, redo: 0 });
+    s.update(undefined, (x) => applyOps(x, [{ op: 'rect', x: 0, y: 0, w: 1, h: 1, color: 'A1' }], s.ctx()).design);
+    expect(s.historyDepth(d.id)).toEqual({ undo: 1, redo: 0 });
+    s.undo();
+    expect(s.historyDepth(d.id)).toEqual({ undo: 0, redo: 1 });
+    expect(s.historyDepth('nope')).toEqual({ undo: 0, redo: 0 });
+  });
   it('undo with empty history throws a friendly error', () => {
     const s = mkStore();
     s.create('x', board);

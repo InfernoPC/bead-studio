@@ -4,8 +4,10 @@ import type { ChecksConfig } from '../../core/checks';
 
 export type View = 'flat' | 'pattern' | '3d' | 'ironed';
 export type DesignSummary = { id: string; name: string; version: number; current: boolean };
+/** 目前作品可以復原／重做的步數 */
+export type HistoryDepth = { undo: number; redo: number };
 export type StateSnapshot = {
-  designs: DesignSummary[]; current: Design | null; palette: PaletteColor[];
+  designs: DesignSummary[]; current: Design | null; history: HistoryDepth | null; palette: PaletteColor[];
   inventory: Inventory; checks: ChecksConfig; mcpUrl: string;
 };
 export type ToolResult = { ok: boolean; text: string; images: { data: string; mimeType: string }[] };

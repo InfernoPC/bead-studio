@@ -30,12 +30,12 @@ export function useServer(): { state: ClientState; refresh(): Promise<void> } {
       ws = sock;
       sock.onopen = () => { delay = 1000; };
       sock.onmessage = (ev) => {
-        let msg: { type?: string; design?: any };
+        let msg: { type?: string; design?: any; history?: any };
         try { msg = JSON.parse(String(ev.data)); } catch { return; }
         if (msg.type === 'hello') { dispatch({ type: 'conn', conn: 'online' }); void refresh(); }
         else if (msg.type === 'meta') void refresh();
         else if (msg.type === 'design' && msg.design) {
-          dispatch({ type: 'design', design: msg.design });
+          dispatch({ type: 'design', design: msg.design, history: msg.history });
           if (msg.design.id !== currentId.current) void refresh();
         }
       };

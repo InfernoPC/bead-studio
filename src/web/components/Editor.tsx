@@ -4,7 +4,7 @@ import type { Op } from '../../core/opSchema';
 import { drawBeadFlat, flatLayout } from '../../core/render/draw';
 import { drawBoard, readTokens } from '../lib/boardRender';
 import { useTheme } from '../lib/theme';
-import { callTool, type StateSnapshot } from '../lib/api';
+import { callTool, toolError, type StateSnapshot } from '../lib/api';
 import { BounceTracker } from '../lib/bounce';
 import { displayDesign, makeCtx, previewOps } from '../lib/clientCore';
 import type { EditorAction, EditorState } from '../lib/editorState';
@@ -406,8 +406,10 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
       if (!undo && !redo) return;
       e.preventDefault();
       if (e.repeat) return;
+      // 沒有可以復原／重做的步驟時安靜地不做事（和工具列停用的按鈕一致）。不用本地的步數先擋：
+      // 筆畫剛送出、伺服器推來的步數還沒到時，⌘Z 也要能復原那一筆
       void callTool(undo ? 'undo' : 'redo', { designId: live.current.design.id })
-        .then((res) => onNotice(res.ok ? null : res.text));
+        .then((res) => onNotice(res.ok || toolError(res.text).code === 'no_history' ? null : res.text));
     };
     const onUp = (e: KeyboardEvent) => { if (e.code === 'Space') setSpace(false); };
     const onBlur = () => setSpace(false);
