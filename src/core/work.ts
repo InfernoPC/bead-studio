@@ -5,7 +5,6 @@ import type { Palette } from './palette';
 export type Work = {
   cols: number; rows: number;
   cells: (string | null)[];
-  allowed: Set<string>;
   palette: Palette;
   markers: Marker[];
   clipped: number;
@@ -20,10 +19,6 @@ export function getCell(w: Work, x: number, y: number): string | null {
 
 export function checkColor(w: Work, code: string): void {
   if (!w.palette.has(code)) throw new OpError('unknown_color', `第 ${w.opIndex} 條指令：未知色號 ${code}`, w.opIndex);
-  if (!w.allowed.has(code)) {
-    const near = w.palette.nearestIn(code, w.allowed);
-    throw new OpError('color_not_allowed', `第 ${w.opIndex} 條指令：色號 ${code} 不在此版本的色彩範圍內，最接近的可用色是 ${near ?? '（無）'}`, w.opIndex);
-  }
 }
 
 export function setCell(w: Work, x: number, y: number, code: string | null): void {
@@ -32,7 +27,7 @@ export function setCell(w: Work, x: number, y: number, code: string | null): voi
   w.cells[y * w.cols + x] = code;
 }
 
-/** 搬移既有的豆子（move/rotate/mirror）：不重新檢查色彩範圍，因為庫存可能已經變動 */
+/** 搬移既有的豆子（move/rotate/mirror）：豆子已經在畫面上，不必再檢查色號 */
 export function placeCell(w: Work, x: number, y: number, code: string | null): void {
   if (!inGrid(w, x, y)) { w.clipped++; return; }
   w.cells[y * w.cols + x] = code;

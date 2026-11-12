@@ -19,7 +19,7 @@ describe('text codec', () => {
     const d0 = createDesign({ id: 't', name: 't', board: { widthMm: 30, heightMm: 15, bead: 5, margin: 1 } });
     const d = paint(d0, [[1, 1, 'A1'], [2, 1, 'A1'], [3, 1, 'A1'], [4, 1, 'H2']]);
     expect(encodeDesignText(d)).toBe([
-      '6x3 margin=1 bead=5 locked=false variant=v1 理想版(all)',
+      '6x3 margin=1 bead=5',
       'bbox=(1,1)-(4,1)',
       'legend: a=A1 b=H2',
       'y1: 3ab',
@@ -36,7 +36,7 @@ describe('text codec', () => {
   });
   it('refuses to encode more colors than legend chars instead of emitting ambiguous output', () => {
     const d = createDesign({ id: 't', name: 't', board: { widthMm: 100, heightMm: 100, bead: 5, margin: 0 } });
-    d.variants[0].cells = d.variants[0].cells.map((_, i) => (i < 200 ? `X${i}` : null));
+    d.cells = d.cells.map((_, i) => (i < 200 ? `X${i}` : null));
     try {
       encodeDesignText(d);
       throw new Error('should throw');
@@ -48,13 +48,13 @@ describe('text codec', () => {
   it('encodes only the requested region intersected with the bbox', () => {
     const d0 = createDesign({ id: 't', name: 't', board: { widthMm: 30, heightMm: 15, bead: 5, margin: 1 } });
     const d = paint(d0, [[1, 1, 'A1'], [2, 1, 'A1'], [3, 1, 'H2'], [4, 1, 'H2'], [1, 2, 'A1']]);
-    expect(encodeDesignText(d, undefined, { x: 3, y: 0, w: 10, h: 2 })).toBe([
-      '6x3 margin=1 bead=5 locked=false variant=v1 理想版(all)',
+    expect(encodeDesignText(d, { x: 3, y: 0, w: 10, h: 2 })).toBe([
+      '6x3 margin=1 bead=5',
       'bbox=(3,1)-(4,1)',
       'legend: a=H2',
       'y1: 2a',
     ].join('\n'));
-    expect(encodeDesignText(d, undefined, { x: 5, y: 0, w: 1, h: 3 })).toContain('bbox=none');
+    expect(encodeDesignText(d, { x: 5, y: 0, w: 1, h: 3 })).toContain('bbox=none');
   });
   it('unrle rejects rows that expand past the limit', () => {
     expect(() => unrle('99999999a', 2048)).toThrow(OpError);

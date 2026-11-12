@@ -1,13 +1,9 @@
-import { OpError } from './errors';
-import type { PaletteMode } from './palette';
-
 export type BeadSize = 2.6 | 5;
 export type Board = { widthMm: number; heightMm: number; bead: BeadSize; margin: number };
 export type Marker = { type: 'hole'; x: number; y: number };
-export type Variant = { id: string; name: string; paletteMode: PaletteMode; cells: (string | null)[] };
 export type DesignCore = {
   id: string; name: string; version: number; board: Board; cols: number; rows: number;
-  mask: string; variants: Variant[]; activeVariant: string; shapeLocked: boolean; markers: Marker[];
+  cells: (string | null)[]; markers: Marker[];
 };
 export type Snapshot = { id: string; name: string; at: string; design: DesignCore };
 export type Design = DesignCore & { snapshots: Snapshot[] };
@@ -31,9 +27,7 @@ export function createDesign(a: { id: string; name: string; board: Board }): Des
   const { cols, rows } = gridSize(a.board);
   return {
     id: a.id, name: a.name, version: 0, board: { ...a.board }, cols, rows,
-    mask: '0'.repeat(cols * rows),
-    variants: [{ id: 'v1', name: '理想版', paletteMode: 'all', cells: Array(cols * rows).fill(null) }],
-    activeVariant: 'v1', shapeLocked: false, markers: [], snapshots: [],
+    cells: Array(cols * rows).fill(null), markers: [], snapshots: [],
   };
 }
 
@@ -44,20 +38,11 @@ export function coreOf(d: Design): DesignCore {
   return structuredClone(core);
 }
 
-export function getVariant(d: DesignCore, id?: string): Variant {
-  const want = id ?? d.activeVariant;
-  const v = d.variants.find((x) => x.id === want);
-  if (!v) throw new OpError('no_variant', `找不到配色版本 ${want}`);
-  return v;
-}
-
 export function countCodes(cells: (string | null)[]): Record<string, number> {
   const out: Record<string, number> = {};
   for (const c of cells) if (c) out[c] = (out[c] ?? 0) + 1;
   return out;
 }
-
-export const maskFromCells = (cells: (string | null)[]) => cells.map((c) => (c === null ? '0' : '1')).join('');
 
 export function bbox(d: DesignCore, cells: (string | null)[]) {
   let x0 = Infinity, y0 = Infinity, x1 = -1, y1 = -1;

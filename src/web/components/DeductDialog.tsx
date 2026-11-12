@@ -1,7 +1,7 @@
 // 「做完了，扣庫存」的確認對話框：列出每色會扣多少，確認後呼叫 deduct_inventory（和 AI 用的是同一個工具）。
 // 庫存不在作品的復原紀錄裡，所以先講清楚會扣什麼、之後去哪裡調整
 import { useState } from 'react';
-import { getVariant, type ClientDesign as Design } from '../../core/model';
+import type { ClientDesign as Design } from '../../core/model';
 import { planDeduction, type Inventory, type PaletteColor } from '../../core/palette';
 import { callTool, toolError } from '../lib/api';
 import { BeadDot, useBeadInk } from './BeadTray';
@@ -25,14 +25,13 @@ function DeductBody({ design, palette, inventory, onClose, onDone }: Omit<Props,
   const ink = useBeadInk();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const variant = getVariant(design);
-  const plan = planDeduction(variant.cells, inventory);
+  const plan = planDeduction(design.cells, inventory);
   const byCode = new Map(palette.map((p) => [p.code, p]));
 
   const confirm = async () => {
     if (busy || plan.deducted.length === 0) return;
     setBusy(true);
-    const res = await callTool('deduct_inventory', { designId: design.id, variant: variant.id });
+    const res = await callTool('deduct_inventory', { designId: design.id });
     setBusy(false);
     if (!res.ok) { setError(toolError(res.text).message); return; }
     onDone({ text: res.text, tone: 'info' });
@@ -43,7 +42,7 @@ function DeductBody({ design, palette, inventory, onClose, onDone }: Omit<Props,
     <>
       {plan.deducted.length > 0 ? (
         <>
-          <p className="modal-text">「{design.name}」（{variant.name}）用掉的豆子會從庫存扣掉：</p>
+          <p className="modal-text">「{design.name}」用掉的豆子會從庫存扣掉：</p>
           <ul className="deduct-list" aria-label="每色扣除量">
             {plan.deducted.map((r) => {
               const p = byCode.get(r.code);
@@ -63,7 +62,7 @@ function DeductBody({ design, palette, inventory, onClose, onDone }: Omit<Props,
           </ul>
         </>
       ) : (
-        <p className="modal-text">「{design.name}」（{variant.name}）沒有用到還有庫存的顏色，沒有東西可以扣。</p>
+        <p className="modal-text">「{design.name}」沒有用到還有庫存的顏色，沒有東西可以扣。</p>
       )}
       {plan.outOfStock.length > 0 && (
         <p className="modal-note">已經沒有庫存：{plan.outOfStock.map((r) => `${r.code}（不夠 ${r.used} 顆）`).join('、')}</p>

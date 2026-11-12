@@ -1,5 +1,5 @@
 import { Palette, type PaletteColor, type Inventory } from '../src/core/palette';
-import { createDesign, cloneDesign, getVariant, maskFromCells, type Design } from '../src/core/model';
+import { createDesign, cloneDesign, type Design } from '../src/core/model';
 
 export const FIX_COLORS: PaletteColor[] = [
   { code: 'A1', name: '紅', series: 'A', hex: '#E8434F' },
@@ -26,11 +26,8 @@ export function smallDesign(cols = 10, rows = 10): Design {
   return createDesign({ id: 't', name: '測試', board: { widthMm: cols * 5, heightMm: rows * 5, bead: 5, margin: 1 } });
 }
 
-export function paint(d: Design, pts: [number, number, string][], variant?: string): Design {
+export function paint(d: Design, pts: [number, number, string][]): Design {
   const n = cloneDesign(d);
-  const v = getVariant(n, variant);
-  for (const [x, y, c] of pts) v.cells[y * n.cols + x] = c;
-  n.mask = maskFromCells(v.cells);
-  for (const o of n.variants) if (o !== v) for (const [x, y, c] of pts) o.cells[y * n.cols + x] = c;
+  for (const [x, y, c] of pts) n.cells[y * n.cols + x] = c;
   return n;
 }

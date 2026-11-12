@@ -31,7 +31,7 @@ describe('REST API', () => {
     await tool('apply_ops', { ops: [{ op: 'rect', x: 2, y: 2, w: 2, h: 1, color: 'A1' }] });
     const s = await (await fetch(`${base}/api/state`)).json();
     expect(s.current.name).toBe('狀態');
-    expect(s.current.mask).toContain('1');
+    expect(s.current.cells.some(Boolean)).toBe(true);
     expect(s.palette.length).toBe(FIX_COLORS.length);
     expect(s.checks.thinChainMin).toBeTypeOf('number');
     expect(s.mcpUrl).toMatch(/\/mcp$/);

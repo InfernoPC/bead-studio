@@ -45,11 +45,11 @@ describe('DesignStore', () => {
     s.on('change', () => changes++);
     s.update(undefined, (d) => applyOps(d, [{ op: 'rect', x: 0, y: 0, w: 1, h: 1, color: 'A1' }], s.ctx()).design);
     expect(s.get().version).toBe(1);
-    expect(s.get().mask[0]).toBe('1');
+    expect(s.get().cells[0]).toBe('A1');
     s.undo();
-    expect(s.get().mask[0]).toBe('0');
+    expect(s.get().cells[0]).toBeNull();
     s.redo();
-    expect(s.get().mask[0]).toBe('1');
+    expect(s.get().cells[0]).toBe('A1');
     expect(changes).toBe(3);
   });
   it('reports undo / redo depth per design', () => {
@@ -74,7 +74,7 @@ describe('DesignStore', () => {
     s.update(undefined, (d) => applyOps(d, [{ op: 'rect', x: 0, y: 0, w: 1, h: 1, color: 'A1' }], s.ctx()).design);
     const s2 = mkStore();
     s2.restoreSnapshot(undefined, snap.id);
-    expect(s2.get().mask[0]).toBe('0');
+    expect(s2.get().cells[0]).toBeNull();
     expect(s2.get().snapshots).toHaveLength(1);
   });
   it('saving a snapshot broadcasts the design (same version) so open browsers list it', () => {
@@ -95,7 +95,7 @@ describe('DesignStore', () => {
       A1: { owned: true, count: 80 }, H1: { owned: true, count: 0 },
     });
   });
-  it('deductInventory subtracts the active variant usage from owned colors, never below zero', () => {
+  it('deductInventory subtracts the design usage from owned colors, never below zero', () => {
     const s = mkStore();
     s.create('x', board);
     s.update(undefined, (d) => applyOps(d, [
@@ -134,21 +134,33 @@ describe('DesignStore', () => {
     expect(metas).toBe(0);
     expect(readFileSync(path, 'utf8')).toBe('{"marker":1}');
   });
-  it('deductInventory uses the given variant and does not touch design history', () => {
+  it('deductInventory does not touch design history', () => {
     const s = mkStore();
     s.create('x', board);
     s.update(undefined, (d) => applyOps(d, [{ op: 'rect', x: 0, y: 0, w: 2, h: 1, color: 'A1' }], s.ctx()).design);
+    s.setInventory([{ code: 'A1', owned: true, count: 5 }]);
     const d = s.get();
-    s.update(undefined, (x) => ({ ...x, variants: [...x.variants, { ...structuredClone(x.variants[0]), id: 'v2', name: '二', cells: x.variants[0].cells.map((c) => (c ? 'A2' : c)) }] }));
-    s.setInventory([{ code: 'A1', owned: true, count: 5 }, { code: 'A2', owned: true, count: 5 }]);
     const depth = s.historyDepth(d.id);
-    const version = s.get().version;
-    s.deductInventory(s.get(), 'v2');
-    expect(s.inventory.A1.count).toBe(5);
-    expect(s.inventory.A2.count).toBe(3);
+    s.deductInventory(d);
+    expect(s.inventory.A1.count).toBe(3);
     expect(s.historyDepth(d.id)).toEqual(depth);
-    expect(s.get().version).toBe(version);
-    expect(() => s.deductInventory(s.get(), 'v9')).toThrow(/找不到配色版本 v9/);
+    expect(s.get().version).toBe(d.version);
+  });
+  it('skips old-format design files without touching them', () => {
+    mkdirSync(join(dir, 'data/designs'), { recursive: true });
+    const path = join(dir, 'data/designs/d-old.json');
+    const old = JSON.stringify({ id: 'd-old', name: '舊', version: 3, board, cols: 10, rows: 10, mask: '0'.repeat(100),
+      variants: [{ id: 'v1', name: '理想版', paletteMode: 'all', cells: Array(100).fill(null) }], activeVariant: 'v1',
+      shapeLocked: false, markers: [], snapshots: [] });
+    writeFileSync(path, old);
+    writeFileSync(join(dir, 'data/state.json'), JSON.stringify({ currentId: 'd-old' }));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const s = mkStore();
+    expect(s.list()).toEqual([]);
+    expect(s.currentId).toBeNull();
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/d-old\.json/));
+    expect(readFileSync(path, 'utf8')).toBe(old);
+    warn.mockRestore();
   });
   it('rejects unknown colors in setInventory', () => {
     expect(() => mkStore().setInventory([{ code: 'ZZ1', owned: true }])).toThrow(/未知色號 ZZ1/);

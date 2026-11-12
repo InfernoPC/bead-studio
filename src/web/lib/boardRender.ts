@@ -1,5 +1,5 @@
 // 編輯區的純繪製：core drawFlat 加上編輯用的疊加層（留邊外紅框、鏡像、單色／檢查器高亮）
-import { getVariant, type ClientDesign as Design } from '../../core/model';
+import type { ClientDesign as Design } from '../../core/model';
 import type { Palette } from '../../core/palette';
 import { drawFlat, flatLayout } from '../../core/render/draw';
 import type { CellFrame } from './bounce';
@@ -34,7 +34,7 @@ export function mirrored(d: Design): Design {
   };
   return {
     ...d,
-    variants: d.variants.map((v) => (v.id === d.activeVariant ? { ...v, cells: flip(v.cells) } : v)),
+    cells: flip(d.cells),
     markers: d.markers.map((m) => ({ ...m, x: d.cols - 1 - m.x })),
   };
 }
@@ -49,22 +49,21 @@ export type BoardOpts = {
 /** 畫整張面板（面板座標，呼叫端負責縮放平移的 transform） */
 export function drawBoard(ctx: CanvasRenderingContext2D, design: Design, o: BoardOpts): void {
   const d = o.mirror ? mirrored(design) : design;
-  const v = getVariant(d);
   const cs = o.cell;
   const { pad } = flatLayout(d, { cell: cs, rulers: true });
   const dx = (i: number) => (o.mirror ? d.cols - 1 - i : i);
   // 跳動中的格子整張一起重畫（不單獨補畫一格），參考線、留邊與打洞記號才不會被蓋掉
   const anim = o.cellAnim?.size ? o.cellAnim : null;
   if (anim) {
-    const cells = v.cells.slice();
+    const cells = d.cells.slice();
     const scale = new Map<number, number>();
     for (const [k, f] of anim) {
       const shownK = Math.floor(k / d.cols) * d.cols + dx(k % d.cols);
       cells[shownK] = f.code; scale.set(shownK, f.scale);
     }
-    drawFlat(ctx, d, { ...v, cells }, o.palette, { cell: cs, ...FLAT, ui: o.tokens.ui, beadScale: (k) => scale.get(k) ?? 1 });
+    drawFlat(ctx, { ...d, cells }, o.palette, { cell: cs, ...FLAT, ui: o.tokens.ui, beadScale: (k) => scale.get(k) ?? 1 });
   } else {
-    drawFlat(ctx, d, v, o.palette, { cell: cs, ...FLAT, ui: o.tokens.ui });
+    drawFlat(ctx, d, o.palette, { cell: cs, ...FLAT, ui: o.tokens.ui });
   }
 
   if (o.mirror) {
@@ -80,7 +79,7 @@ export function drawBoard(ctx: CanvasRenderingContext2D, design: Design, o: Boar
   if (m > 0) {
     ctx.strokeStyle = o.tokens.alert; ctx.lineWidth = Math.max(1, cs * 0.08);
     for (let j = 0; j < d.rows; j++) for (let i = 0; i < d.cols; i++) {
-      if (!v.cells[j * d.cols + i]) continue;
+      if (!d.cells[j * d.cols + i]) continue;
       if (i >= m && j >= m && i < d.cols - m && j < d.rows - m) continue;
       const inset = ctx.lineWidth / 2;
       ctx.strokeRect(pad + i * cs + inset, pad + j * cs + inset, cs - inset * 2, cs - inset * 2);
@@ -90,8 +89,8 @@ export function drawBoard(ctx: CanvasRenderingContext2D, design: Design, o: Boar
   // 單色高亮：其他格子暗化
   if (o.highlightCode) {
     ctx.save(); ctx.globalAlpha = DIM; ctx.fillStyle = o.tokens.dim;
-    for (let k = 0; k < v.cells.length; k++) {
-      if (v.cells[k] === o.highlightCode) continue;
+    for (let k = 0; k < d.cells.length; k++) {
+      if (d.cells[k] === o.highlightCode) continue;
       ctx.fillRect(pad + (k % d.cols) * cs, pad + Math.floor(k / d.cols) * cs, cs, cs);
     }
     ctx.restore();
@@ -101,7 +100,7 @@ export function drawBoard(ctx: CanvasRenderingContext2D, design: Design, o: Boar
   if (o.highlightCells) {
     const keep = new Set(o.highlightCells.map(([x, y]) => y * d.cols + dx(x)));
     ctx.save(); ctx.globalAlpha = DIM; ctx.fillStyle = o.tokens.dim;
-    for (let k = 0; k < v.cells.length; k++) {
+    for (let k = 0; k < d.cells.length; k++) {
       if (!keep.has(k)) ctx.fillRect(pad + (k % d.cols) * cs, pad + Math.floor(k / d.cols) * cs, cs, cs);
     }
     ctx.restore();

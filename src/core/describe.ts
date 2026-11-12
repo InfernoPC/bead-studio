@@ -1,18 +1,17 @@
 import { deltaE00 } from './color';
 import { OpError } from './errors';
-import { bbox, getVariant, type DesignCore } from './model';
+import { bbox, type DesignCore } from './model';
 import type { Palette } from './palette';
 import { legendFor } from './textCodec';
 
 const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
-export function describeDesign(d: DesignCore, variantId: string | undefined, palette: Palette): string {
-  const v = getVariant(d, variantId);
+export function describeDesign(d: DesignCore, palette: Palette): string {
   const { cols, rows } = d;
-  const at = (x: number, y: number) => (x >= 0 && y >= 0 && x < cols && y < rows ? v.cells[y * cols + x] : null);
-  const b = bbox(d, v.cells);
+  const at = (x: number, y: number) => (x >= 0 && y >= 0 && x < cols && y < rows ? d.cells[y * cols + x] : null);
+  const b = bbox(d, d.cells);
   const out: string[] = [];
-  out.push(`尺寸 ${cols}×${rows} 格（${d.board.widthMm}×${d.board.heightMm}mm，${d.board.bead}mm 豆），版本 ${v.name}(${v.paletteMode})${d.shapeLocked ? '，形狀已鎖定' : ''}`);
+  out.push(`尺寸 ${cols}×${rows} 格（${d.board.widthMm}×${d.board.heightMm}mm，${d.board.bead}mm 豆）`);
   if (!b) { out.push('畫面空白，還沒有任何豆子'); return out.join('\n'); }
   const bw = b.x1 - b.x0 + 1, bh = b.y1 - b.y0 + 1, m = d.board.margin;
   const marginOk = b.x0 >= m && b.y0 >= m && b.x1 < cols - m && b.y1 < rows - m;
@@ -35,8 +34,8 @@ export function describeDesign(d: DesignCore, variantId: string | undefined, pal
   out.push('色塊：');
   const seen = new Uint8Array(cols * rows);
   const byCode = new Map<string, { n: number; comps: number; x0: number; y0: number; x1: number; y1: number; sx: number; sy: number }>();
-  for (let i = 0; i < v.cells.length; i++) {
-    const c = v.cells[i];
+  for (let i = 0; i < d.cells.length; i++) {
+    const c = d.cells[i];
     if (!c) continue;
     const s = byCode.get(c) ?? { n: 0, comps: 0, x0: Infinity, y0: Infinity, x1: -1, y1: -1, sx: 0, sy: 0 };
     const x = i % cols, y = Math.floor(i / cols);
@@ -64,8 +63,8 @@ export function describeDesign(d: DesignCore, variantId: string | undefined, pal
 
   const edge = new Map<string, number>();
   let edgeTotal = 0;
-  for (let i = 0; i < v.cells.length; i++) {
-    const c = v.cells[i];
+  for (let i = 0; i < d.cells.length; i++) {
+    const c = d.cells[i];
     if (!c) continue;
     const x = i % cols, y = Math.floor(i / cols);
     if (N4.some(([dx, dy]) => at(x + dx, y + dy) === null)) { edgeTotal++; edge.set(c, (edge.get(c) ?? 0) + 1); }
@@ -88,7 +87,7 @@ export function describeDesign(d: DesignCore, variantId: string | undefined, pal
 
   let legend: Map<string, string>;
   try {
-    legend = legendFor(v.cells);
+    legend = legendFor(d.cells);
   } catch (e) {
     if (e instanceof OpError && e.code === 'too_many_colors') { out.push(`縮圖：顏色太多無法用文字表示（${e.message}）`); return out.join('\n'); }
     throw e;

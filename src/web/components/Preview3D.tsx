@@ -1,7 +1,7 @@
 // 3D 實體預覽：整個介面唯一用到 3D 的地方（編輯區維持平面）。以 core drawIso 畫霧面圓柱豆，
 // 拖曳旋轉、滾輪縮放；「放大」用 <dialog> 全螢幕顯示同一組畫布與控制項，兩邊共用同一份檢視狀態。
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type KeyboardEvent, type PointerEvent, type SetStateAction } from 'react';
-import { bbox, getVariant, type ClientDesign as Design } from '../../core/model';
+import { bbox, type ClientDesign as Design } from '../../core/model';
 import { Palette, type PaletteColor } from '../../core/palette';
 import { drawIso, type IsoOpts } from '../../core/render/draw';
 import { readTokens } from '../lib/boardRender';
@@ -18,7 +18,7 @@ const cm = (mm: number) => (Math.round(mm) / 10).toFixed(1).replace(/\.0$/, '');
 
 /** 1:1 實際大小：有豆子時用內容範圍 × 豆子直徑，沒有豆子時顯示面板尺寸 */
 export function physicalSize(d: Design): string {
-  const box = bbox(d, getVariant(d).cells);
+  const box = bbox(d, d.cells);
   if (!box) return `面板實際大小約 ${cm(d.board.widthMm)} × ${cm(d.board.heightMm)} cm`;
   const b = d.board.bead;
   return `1:1 實際大小約 ${cm((box.x1 - box.x0 + 1) * b)} × ${cm((box.y1 - box.y0 + 1) * b)} cm`;
@@ -69,7 +69,7 @@ function Stage({ design, palette, view, setView, ui, testId }: StageProps) {
       const ctx = c?.getContext('2d');
       if (!c || !ctx) return;
       if (c.width !== px) { c.width = px; c.height = px; }
-      drawIso(ctx, design, getVariant(design), palette, { size: px, ...view, ui });
+      drawIso(ctx, design, palette, { size: px, ...view, ui });
     });
     return () => cancelAnimationFrame(frame.current);
   }, [design, palette, view, ui, px]);

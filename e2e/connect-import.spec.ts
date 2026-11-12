@@ -145,11 +145,11 @@ test('dropping an exported PNG restores it as a new design', async ({ page }) =>
   await page.keyboard.press('Escape');
 });
 
-test('other images ask for options first, then convert into the current variant', async ({ page }) => {
+test('other images ask for options first, then convert into the current design', async ({ page }) => {
   await openDesign(page, '轉換測試');
   await drag(page, 'drop', await jpeg(page));
   const card = page.getByRole('dialog', { name: '導入圖片' });
-  await expect(card.getByText('轉換到：目前版本')).toBeVisible();
+  await expect(card.getByText('轉換到：目前作品')).toBeVisible();
   await card.getByLabel(/去除背景/).check();
   await expect(card.getByLabel(/抖色/)).not.toBeChecked();
   await card.getByRole('button', { name: '開始轉換' }).click();
@@ -161,19 +161,3 @@ test('other images ask for options first, then convert into the current variant'
   expect(total).toBeLessThan(cols * rows); // 去除背景：白底沒有放豆
 });
 
-test('a shape-locked design explains why and offers to unlock', async ({ page }) => {
-  await openDesign(page, '鎖定測試');
-  const { current: d } = await state(page);
-  await tool(page, 'set_shape_lock', { designId: d.id, locked: true });
-  await expect(page.getByRole('button', { name: '只換色' })).toHaveAttribute('aria-pressed', 'true');
-
-  await drag(page, 'drop', await jpeg(page));
-  const card = page.getByRole('dialog', { name: '導入圖片' });
-  await expect(card.getByText('形狀已鎖定，無法導入圖片')).toBeVisible();
-  await expect(card.getByRole('button', { name: '開始轉換' })).toHaveCount(0);
-  await card.getByRole('button', { name: '解鎖形狀' }).click();
-  await expect(card.getByRole('button', { name: '開始轉換' })).toBeVisible();
-  expect((await state(page)).current.shapeLocked).toBe(false);
-  await card.getByRole('button', { name: '取消' }).click();
-  await expect(card).toBeHidden();
-});

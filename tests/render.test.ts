@@ -2,8 +2,6 @@ import { describe, it, expect } from 'vitest';
 import { loadImage, createCanvas } from '@napi-rs/canvas';
 import { renderPng } from '../src/server/render';
 import { drawFlat, drawIso, flatLayout, UI, type FlatOpts, type IsoOpts } from '../src/core/render/draw';
-import { getVariant } from '../src/core/model';
-import { createVariant } from '../src/core/variants';
 import { smallDesign, paint, palette, ctxAll } from './fixtures';
 
 async function pixel(png: Buffer, x: number, y: number) {
@@ -23,12 +21,16 @@ describe('renderPng', () => {
     const { rgba } = await pixel(png, L.pad + 4, 24 + L.pad + 4);
     expect(rgba[0]).toBeGreaterThan(rgba[1] + 60);
   });
-  it('renders all variants side by side', async () => {
-    const d0 = paint(smallDesign(), [[0, 0, 'A1']]);
-    const { design } = createVariant(d0, { name: '第二版', paletteMode: 'all' }, ctxAll);
-    const one = await pixel(await renderPng(design, palette, { view: 'flat' }), 0, 0);
-    const all = await pixel(await renderPng(design, palette, { view: 'flat', variant: 'all' }), 0, 0);
-    expect(all.size[0]).toBeGreaterThan(one.size[0] * 2 - 1);
+  it('titles the image with the design name', async () => {
+    const d = paint(smallDesign(), [[0, 0, 'A1']]);
+    // 標題列有字：左上角附近有深色像素
+    const png = await renderPng(d, palette, { view: 'flat' });
+    let dark = false;
+    for (let x = 6; x < 60 && !dark; x++) for (let y = 4; y < 20 && !dark; y++) {
+      const { rgba } = await pixel(png, x, y);
+      if (rgba[0] < 120) dark = true;
+    }
+    expect(dark).toBe(true);
   });
   it('renders pattern, 3d and ironed views without throwing', async () => {
     const d = paint(smallDesign(), [[4, 4, 'A1'], [5, 4, 'H1']]);
@@ -48,7 +50,7 @@ describe('drawFlat theme override', () => {
     const L = flatLayout(d, o);
     const c = createCanvas(L.w, L.h);
     const ctx = c.getContext('2d');
-    drawFlat(ctx as unknown as CanvasRenderingContext2D, d, getVariant(d), palette, o);
+    drawFlat(ctx as unknown as CanvasRenderingContext2D, d, palette, o);
     const at = (x: number, y: number) => [...ctx.getImageData(x, y, 1, 1).data];
     // 豆子 (0,0)：中心偏左上避開中孔；外緣之外一點點（描邊位置）
     return { bg: at(1, 1), board: at(L.pad + 1, L.pad + 1), bead: at(L.pad + 6, L.pad + 6), rim: at(L.pad + 10, L.pad + 0.47 * 20 + 10 + 0.4) };
@@ -76,7 +78,7 @@ describe('drawIso theme override', () => {
     const size = 200;
     const c = createCanvas(size, size);
     const ctx = c.getContext('2d');
-    drawIso(ctx as unknown as CanvasRenderingContext2D, d, getVariant(d), palette, { size, tilt: 0, yaw: 0, ui });
+    drawIso(ctx as unknown as CanvasRenderingContext2D, d, palette, { size, tilt: 0, yaw: 0, ui });
     const at = (x: number, y: number) => [...ctx.getImageData(x, y, 1, 1).data];
     // tilt 0、yaw 0 時是正上方俯視：板子置中，(0,0) 的豆子在左上角；中間附近是空格的板面
     const s = (size - 10) / (Math.max(d.cols, d.rows) * 1.45);

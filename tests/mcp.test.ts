@@ -46,10 +46,10 @@ describe('MCP tools', () => {
     const { client } = await connect();
     const names = (await client.listTools()).tools.map((t) => t.name).sort();
     expect(names).toEqual([
-      'apply_ops', 'calibrate_color', 'create_variant', 'deduct_inventory', 'describe_design', 'export_png', 'get_design', 'get_palette',
+      'apply_ops', 'calibrate_color', 'deduct_inventory', 'describe_design', 'export_png', 'get_design', 'get_palette',
       'import_image', 'list_designs', 'new_design', 'open_design', 'redo', 'render_preview',
-      'restore_snapshot', 'run_checks', 'select_variant', 'set_board', 'set_inventory',
-      'set_shape_lock', 'set_variant_mode', 'snapshot', 'undo',
+      'restore_snapshot', 'run_checks', 'set_board', 'set_inventory',
+      'snapshot', 'undo',
     ]);
   });
 
@@ -96,23 +96,15 @@ describe('MCP tools', () => {
     expect(t.text).toMatch(/畫面空白/);
   });
 
-  it('variants, shape lock and palette modes', async () => {
+  it('draws with a color that is not in stock and reports the shortage', async () => {
     const { text } = await connect();
     await text('new_design', NEW);
-    await text('set_inventory', { items: [{ code: 'A1', owned: true, count: 1 }, { code: 'A2', owned: true, count: 10 }] });
-    await text('apply_ops', { ops: [{ op: 'rect', x: 3, y: 3, w: 3, h: 1, color: 'A4' }] });
-    const cv = await text('create_variant', { name: '庫存版', paletteMode: 'stock' });
-    expect(cv.text).toMatch(/v2/);
-    const counts = store.get().variants[1].cells.filter(Boolean);
-    expect(counts.filter((c) => c === 'A1')).toHaveLength(1);
-    await text('set_shape_lock', { locked: true });
-    const r = await text('apply_ops', { ops: [{ op: 'rect', x: 0, y: 0, w: 1, h: 1, color: 'A1' }] });
-    expect(r.text).toMatch(/shape_locked/);
-    const sel = await text('select_variant', { variant: 'v2' });
-    expect(sel.ok).toBe(true);
-    expect(store.get().activeVariant).toBe('v2');
-    const mode = await text('set_variant_mode', { variant: 'v2', paletteMode: 'owned' });
-    expect(mode.ok).toBe(true);
+    await text('set_inventory', { items: [{ code: 'A1', owned: true, count: 1 }] });
+    const r = await text('apply_ops', { ops: [{ op: 'rect', x: 3, y: 3, w: 3, h: 1, color: 'A4' }, { op: 'rect', x: 3, y: 4, w: 2, h: 1, color: 'A1' }] });
+    expect(r.ok).toBe(true);
+    expect(r.text).toMatch(/^OK 共 5 顆/);
+    expect(r.text).toMatch(/A4 沒有庫存，需購買 3 顆/);
+    expect(r.text).toMatch(/A1 庫存不足：需要 2 顆，缺 1 顆/);
   });
 
   it('deduct_inventory reports per-color deductions and colors that ran out', async () => {
@@ -135,16 +127,16 @@ describe('MCP tools', () => {
     expect(r.text).toMatch(/已經沒有庫存（不夠）：H1 不夠 2 顆/);
     expect(r.text).not.toMatch(/H1 扣/);
     expect(store.inventory.A1.count).toBe(7);
-    const none = await text('deduct_inventory', { variant: 'v9' });
-    expect(none.ok).toBe(false);
-    expect(none.text).toMatch(/no_variant/);
   });
 
-  it('get_palette lists colors with stock for the given mode', async () => {
+  it('get_palette lists every color with its stock', async () => {
     const { text } = await connect();
     await text('set_inventory', { items: [{ code: 'A1', owned: true, count: 200 }] });
-    const r = await text('get_palette', { mode: 'owned' });
-    expect(r.text.trim()).toBe('A1 紅 #E8434F 庫存200');
+    const lines = (await text('get_palette')).text.trim().split('\n');
+    expect(lines).toHaveLength(FIX_COLORS.length);
+    expect(lines).toContain('A1 紅 #E8434F 庫存200');
+    expect(lines).toContain('A2 深紅 #C9302C 庫存0');
+    expect(lines).toContain('T1 透明 #E9F1F3 庫存0 透明');
   });
 
   it('caps board size and ops count', async () => {
@@ -174,7 +166,7 @@ describe('MCP tools', () => {
     await text('apply_ops', { ops: [{ op: 'rect', x: 2, y: 2, w: 2, h: 2, color: 'C1' }] });
     const out = join(dir, 'out.png');
     await text('export_png', { path: out, view: 'pattern' });
-    expect(extractDesign(readFileSync(out))!.mask).toBe(store.get().mask);
+    expect(extractDesign(readFileSync(out))!.cells).toEqual(store.get().cells);
     const before = store.list().length;
     const r = await text('import_image', { path: out });
     expect(r.text).toMatch(/還原/);
@@ -222,8 +214,7 @@ describe('MCP tools', () => {
     const { text } = await connect();
     await text('new_design', NEW);
     const bad = createDesign({ id: 'x', name: '外來', board: { widthMm: 50, heightMm: 50, bead: 5, margin: 1 } });
-    bad.variants[0].cells[0] = 'ZZ9';
-    bad.mask = '1' + bad.mask.slice(1);
+    bad.cells[0] = 'ZZ9';
     const p = join(dir, 'foreign.png');
     writeFileSync(p, embedDesign(await renderPng(createDesign({ id: 'x', name: 'x', board: bad.board }), palette, {}), bad));
     const before = store.list().length;
@@ -234,18 +225,6 @@ describe('MCP tools', () => {
     expect(store.list().length).toBe(before);
   });
 
-  it('import_image checks the shape lock before converting', async () => {
-    const { text } = await connect();
-    await text('new_design', NEW);
-    await text('set_variant_mode', { variant: 'v1', paletteMode: 'owned' });
-    await text('set_shape_lock', { locked: true });
-    const c = createCanvas(4, 4);
-    const p = join(dir, 'lock.png');
-    writeFileSync(p, await c.encode('png'));
-    const r = await text('import_image', { path: p });
-    expect(r.ok).toBe(false);
-    expect(r.text).toMatch(/shape_locked/);
-  });
 
   it('import_image falls back to image conversion for a plain PNG', async () => {
     const { text } = await connect();
@@ -258,7 +237,7 @@ describe('MCP tools', () => {
     const r = await text('import_image', { path: p });
     expect(r.ok).toBe(true);
     expect(r.text).toMatch(/轉換/);
-    expect(store.get().variants[0].cells.filter((x) => x === 'C1').length).toBe(64);
+    expect(store.get().cells.filter((x) => x === 'C1').length).toBe(64);
   });
 
   it('undo, redo, snapshot and restore', async () => {
@@ -268,11 +247,11 @@ describe('MCP tools', () => {
     const snapId = s.text.match(/s-[a-z0-9]+/)![0];
     await text('apply_ops', { ops: [{ op: 'rect', x: 2, y: 2, w: 1, h: 1, color: 'A1' }] });
     await text('undo');
-    expect(store.get().mask).not.toContain('1');
+    expect(store.get().cells.some(Boolean)).toBe(false);
     await text('redo');
-    expect(store.get().mask).toContain('1');
+    expect(store.get().cells.some(Boolean)).toBe(true);
     await text('restore_snapshot', { snapshotId: snapId });
-    expect(store.get().mask).not.toContain('1');
+    expect(store.get().cells.some(Boolean)).toBe(false);
   });
 
   it('describe_design and run_checks return text', async () => {

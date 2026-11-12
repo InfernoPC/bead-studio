@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DesignSchema } from '../src/core/designSchema';
+import { DesignSchema, parseDesign } from '../src/core/designSchema';
 import { smallDesign, paint } from './fixtures';
 
 const base = () => JSON.parse(JSON.stringify(paint(smallDesign(), [[1, 1, 'A1']])));
@@ -24,17 +24,18 @@ describe('DesignSchema', () => {
   it.each([
     ['bad bead', (d: any) => { d.board.bead = 3; }],
     ['non-integer cols', (d: any) => { d.cols = 9.5; }],
-    ['mask length mismatch', (d: any) => { d.mask = d.mask.slice(1); }],
-    ['mask chars', (d: any) => { d.mask = d.mask.replace('0', '2'); }],
-    ['no variants', (d: any) => { d.variants = []; }],
-    ['cells length', (d: any) => { d.variants[0].cells.pop(); }],
-    ['cell type', (d: any) => { d.variants[0].cells[0] = 5; }],
-    ['missing activeVariant', (d: any) => { d.activeVariant = 'v9'; }],
-    ['shapeLocked type', (d: any) => { d.shapeLocked = 'yes'; }],
-    ['cells disagree with mask', (d: any) => { d.variants[0].cells[0] = 'A1'; }],
+    ['cells length', (d: any) => { d.cells.pop(); }],
+    ['cell type', (d: any) => { d.cells[0] = 5; }],
+    ['missing cells', (d: any) => { delete d.cells; }],
   ])('rejects %s', (_, mutate) => {
     const d = base();
     mutate(d);
     expect(DesignSchema.safeParse(d).success).toBe(false);
+  });
+  it('rejects the old multi-variant format', () => {
+    const old = { id: 'd-1', name: 'x', version: 0, board: { widthMm: 10, heightMm: 10, bead: 5, margin: 0 }, cols: 2, rows: 2,
+      mask: '0000', variants: [{ id: 'v1', name: '理想版', paletteMode: 'all', cells: [null, null, null, null] }],
+      activeVariant: 'v1', shapeLocked: false, markers: [], snapshots: [] };
+    expect(parseDesign(old)).toBeNull();
   });
 });

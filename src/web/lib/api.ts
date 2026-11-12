@@ -53,10 +53,9 @@ export function toolError(text: string): { code: string | null; message: string 
 }
 
 export async function uploadImport(
-  file: Blob, o: { variant?: string; removeBg?: boolean; dither?: boolean } = {},
+  file: Blob, o: { removeBg?: boolean; dither?: boolean } = {},
 ): Promise<{ ok: boolean; text: string }> {
   const q = new URLSearchParams();
-  if (o.variant) q.set('variant', o.variant);
   if (o.removeBg) q.set('removeBg', '1');
   if (o.dither) q.set('dither', '1');
   try {
@@ -68,10 +67,9 @@ export async function uploadImport(
   }
 }
 
-export function exportUrl(designId: string, o: { variant?: string; view?: View; scale?: number } = {}): string {
+export function exportUrl(designId: string, o: { view?: View; scale?: number } = {}): string {
   const q = new URLSearchParams();
   if (o.view) q.set('view', o.view);
-  if (o.variant) q.set('variant', o.variant);
   if (o.scale) q.set('scale', String(o.scale));
   const qs = q.toString();
   return `/api/designs/${encodeURIComponent(designId)}/export.png${qs ? `?${qs}` : ''}`;

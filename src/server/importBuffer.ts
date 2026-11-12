@@ -1,10 +1,7 @@
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { formatIssues, runChecks } from '../core/checks';
 import { OpError } from '../core/errors';
-import { imageToCells } from '../core/importImage';
-import { getVariant, maskFromCells } from '../core/model';
-import { syncOtherVariants } from '../core/ops';
-import { allowedCodes, stockCapacity } from '../core/palette';
+import { imageToCells, type PixelRect } from '../core/importImage';
 import { readImageSize } from './imageSize';
 import { extractDesign, hasDesignMeta } from './pngmeta';
 import type { DesignStore } from './store';
@@ -15,12 +12,16 @@ export const MAX_IMAGE_PIXELS = 50_000_000;
 export async function importImageBuffer(
   store: DesignStore,
   buf: Buffer,
-  { designId: id, variant: v, removeBg = false, dither = false }: { designId?: string; variant?: string; removeBg?: boolean; dither?: boolean },
+  { designId: id, removeBg = false, dither = false, colors, crop, exclude }: {
+    designId?: string; removeBg?: boolean; dither?: boolean;
+    /** 只用這些色號轉換（例如黑白線稿只給黑、白） */
+    colors?: string[]; crop?: PixelRect; exclude?: PixelRect[];
+  },
 ): Promise<string> {
   const known = (cells: (string | null)[]) => cells.every((c) => c === null || store.palette.has(c));
   const meta = extractDesign(buf);
-  if (meta && meta.variants.every((x) => known(x.cells))) {
-    meta.snapshots = meta.snapshots.filter((s) => s.design.variants.every((x) => known(x.cells)));
+  if (meta && known(meta.cells)) {
+    meta.snapshots = meta.snapshots.filter((s) => known(s.design.cells));
     const d = store.importDesign(meta);
     return `已從 PNG metadata 還原作品 ${d.id}「${d.name}」`;
   }
@@ -37,21 +38,19 @@ export async function importImageBuffer(
   ctx.drawImage(img, 0, 0);
   const rgba = ctx.getImageData(0, 0, img.width, img.height).data;
   const d = store.update(id, (cur) => {
-    if (cur.shapeLocked) throw new OpError('shape_locked', '形狀已鎖定，無法導入圖片（會改變豆子位置）');
-    const target = getVariant(cur, v);
-    const allowed = store.palette.entries(allowedCodes(store.palette, store.inventory, target.paletteMode)).filter((e) => !e.transparent);
+    let allowed = store.palette.all().filter((e) => !e.transparent);
+    if (colors) {
+      const unknown = colors.filter((c) => !store.palette.has(c));
+      if (unknown.length) throw new OpError('unknown_color', `色表沒有這些色號：${unknown.join(', ')}`);
+      const clear = colors.filter((c) => store.palette.get(c)!.transparent);
+      if (clear.length) throw new OpError('bad_colors', `自動對色不能用透明豆：${clear.join(', ')}`);
+      allowed = allowed.filter((e) => colors.includes(e.code));
+    }
     const cells = imageToCells(rgba, img.width, img.height, {
-      cols: cur.cols, rows: cur.rows, margin: cur.board.margin, allowed, removeBg, dither,
-      capacity: target.paletteMode === 'stock' ? stockCapacity(store.inventory) : undefined,
+      cols: cur.cols, rows: cur.rows, margin: cur.board.margin, allowed, removeBg, dither, crop, exclude,
     });
-    const next = structuredClone(cur);
-    const tv = getVariant(next, target.id);
-    tv.cells = cells;
-    next.mask = maskFromCells(cells);
-    for (const o of next.variants) if (o !== tv) o.cells = o.cells.map(() => null);
-    syncOtherVariants(next, tv, store.ctx());
-    return next;
+    return { ...structuredClone(cur), cells };
   });
-  const n = getVariant(d, v).cells.filter(Boolean).length;
-  return `${notice}已轉換圖片到 ${d.name}：${n} 顆豆子\n檢查：\n${formatIssues(runChecks(store.get(d.id), v, { ...store.ctx(), config: store.checks }))}`;
+  const n = d.cells.filter(Boolean).length;
+  return `${notice}已轉換圖片到 ${d.name}：${n} 顆豆子\n檢查：\n${formatIssues(runChecks(store.get(d.id), { ...store.ctx(), config: store.checks }))}`;
 }

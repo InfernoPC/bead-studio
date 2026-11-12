@@ -86,7 +86,7 @@ export async function buildApp(store: DesignStore, opts: AppOpts = {}) {
   app.get('/mcp', notAllowed);
   app.delete('/mcp', notAllowed);
 
-  app.get<{ Params: { id: string }; Querystring: { variant?: string; view?: View; scale?: string } }>(
+  app.get<{ Params: { id: string }; Querystring: { view?: View; scale?: string } }>(
     '/api/designs/:id/export.png',
     async (req, reply) => {
       const view = req.query.view ?? 'flat';
@@ -95,10 +95,10 @@ export async function buildApp(store: DesignStore, opts: AppOpts = {}) {
       if (!Number.isFinite(scale) || scale < 0.5 || scale > 4) return reply.code(400).send({ error: 'scale 必須介於 0.5 到 4' });
       try {
         const d = store.get(req.params.id);
-        const png = await renderPng(d, store.palette, { variant: req.query.variant, view, scale });
+        const png = await renderPng(d, store.palette, { view, scale });
         return reply.type('image/png').send(embedDesign(png, d));
       } catch (e) {
-        if (e instanceof OpError && (e.code === 'no_design' || e.code === 'no_variant')) return reply.code(404).send({ error: e.message });
+        if (e instanceof OpError && e.code === 'no_design') return reply.code(404).send({ error: e.message });
         throw e;
       }
     },
@@ -118,10 +118,10 @@ export async function buildApp(store: DesignStore, opts: AppOpts = {}) {
     tools.call(req.params.name, (req.body ?? {}) as Record<string, unknown>));
 
   app.addContentTypeParser('application/octet-stream', { parseAs: 'buffer', bodyLimit: 20 * 1024 * 1024 }, (_r, body, done) => done(null, body));
-  app.post<{ Querystring: { variant?: string; removeBg?: string; dither?: string } }>('/api/import', async (req) => {
+  app.post<{ Querystring: { removeBg?: string; dither?: string } }>('/api/import', async (req) => {
     try {
       const text = await importImageBuffer(store, req.body as Buffer, {
-        variant: req.query.variant, removeBg: req.query.removeBg === '1', dither: req.query.dither === '1',
+        removeBg: req.query.removeBg === '1', dither: req.query.dither === '1',
       });
       return { ok: true, text };
     } catch (e) {

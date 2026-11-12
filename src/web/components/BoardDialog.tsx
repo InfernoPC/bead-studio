@@ -71,7 +71,7 @@ export function BoardFields({ form, onChange, lockedMm, grid }: FieldsProps) {
 }
 
 type Keep = 'cells' | 'size';
-type Step = { kind: 'form' } | { kind: 'crop'; count: number } | { kind: 'locked'; reason: string } | { kind: 'error'; text: string };
+type Step = { kind: 'form' } | { kind: 'crop'; count: number } | { kind: 'error'; text: string };
 
 type Props = { open: boolean; design: Design; onClose(): void };
 
@@ -118,15 +118,7 @@ function BoardSettings({ design, onClose }: Omit<Props, 'open'>) {
     if (err.code === 'would_crop') {
       const n = /裁掉\s*(\d+)\s*顆/.exec(err.message)?.[1];
       setStep({ kind: 'crop', count: n ? Number(n) : 0 });
-    } else if (err.code === 'shape_locked') setStep({ kind: 'locked', reason: err.message });
-    else setStep({ kind: 'error', text: err.message });
-  };
-
-  const unlock = async () => {
-    if (busy.current) return; busy.current = true;
-    const res = await callTool('set_shape_lock', { designId: design.id, locked: false });
-    busy.current = false;
-    setStep(res.ok ? { kind: 'form' } : { kind: 'error', text: toolError(res.text).message });
+    } else setStep({ kind: 'error', text: err.message });
   };
 
   const onFormChange = (f: BoardForm) => { setForm(f); if (step.kind !== 'form') setStep({ kind: 'form' }); };
@@ -157,12 +149,6 @@ function BoardSettings({ design, onClose }: Omit<Props, 'open'>) {
             保持實體尺寸（重新取樣）
           </label>
         </fieldset>
-      )}
-      {step.kind === 'locked' && (
-        <div className="modal-alert" role="alert">
-          <p>{step.reason}</p>
-          <button type="button" className="btn-quiet" onClick={() => void unlock()}>解鎖形狀</button>
-        </div>
       )}
       {step.kind === 'error' && <p className="modal-alert" role="alert">{step.text}</p>}
       <div className="modal-actions">

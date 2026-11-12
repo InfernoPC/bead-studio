@@ -2,8 +2,8 @@
 // PNG 直接上傳（伺服器判斷有沒有可還原的作品資料：有就還原成新作品，沒有就轉換到目前作品）；
 // 其他圖片先問轉換選項。形狀鎖定時選項卡改成說明與「解鎖形狀」。
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getVariant, type ClientDesign as Design } from '../../core/model';
-import { callTool, toolError, uploadImport } from '../lib/api';
+import type { ClientDesign as Design } from '../../core/model';
+import { toolError, uploadImport } from '../lib/api';
 import { Dialog } from './Dialog';
 
 export type Notice = { text: string; tone: 'info' | 'alert' };
@@ -35,7 +35,6 @@ export function ImportOverlay({ design, editable, onNotice }: Props) {
   const [dragging, setDragging] = useState(false);
   const [pending, setPending] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
-  const [cardError, setCardError] = useState<string | null>(null);
   const [removeBg, setRemoveBg] = useState(false);
   const [dither, setDither] = useState(false);
 
@@ -59,14 +58,12 @@ export function ImportOverlay({ design, editable, onNotice }: Props) {
     }
     if (!png) {
       if (!d) { onNotice({ text: '先建立作品，圖片會轉換到作品的板子上。', tone: 'alert' }); return; }
-      setCardError(null);
       setPending(file);
       return;
     }
     onNotice({ text: '正在導入圖片…', tone: 'info' });
-    const res = await uploadImport(file, { variant: d?.activeVariant });
+    const res = await uploadImport(file);
     const code = res.ok ? null : toolError(res.text).code;
-    if (code === 'shape_locked') { onNotice(null); setCardError(null); setPending(file); return; }
     if (code === 'no_design') {
       onNotice({ text: '這張 PNG 不是拼豆工作室匯出的作品。先建立作品，圖片會轉換到作品的板子上。', tone: 'alert' });
       return;
@@ -137,29 +134,19 @@ export function ImportOverlay({ design, editable, onNotice }: Props) {
 
   // 離線或作品不見了：選項卡對不上，收起來
   const designId = design?.id;
-  const close = useCallback(() => { setPending(null); setCardError(null); }, []);
+  const close = useCallback(() => setPending(null), []);
   useEffect(() => { if (!editable) close(); }, [editable, close]);
   useEffect(() => close(), [designId, close]);
 
   const start = async () => {
     if (!pending || !design) return;
     setBusy(true);
-    const res = await uploadImport(pending, { variant: design.activeVariant, removeBg, dither });
+    const res = await uploadImport(pending, { removeBg, dither });
     setBusy(false);
-    if (!res.ok && toolError(res.text).code === 'shape_locked') return; // 卡片會跟著作品狀態換成鎖定說明
     close();
     report(res);
   };
 
-  const unlock = async () => {
-    if (!design) return;
-    setBusy(true);
-    const res = await callTool('set_shape_lock', { designId: design.id, locked: false });
-    setBusy(false);
-    setCardError(res.ok ? null : toolError(res.text).message);
-  };
-
-  const locked = !!design?.shapeLocked;
   const off = busy || !editable;
   return (
     <>
@@ -172,20 +159,10 @@ export function ImportOverlay({ design, editable, onNotice }: Props) {
         </div>
       )}
       <Dialog open={!!pending && !!design} title="導入圖片" onClose={close} className="import-card">
-        {pending && design && (locked ? (
-          <>
-            <p className="modal-text">形狀已鎖定，無法導入圖片</p>
-            <p className="modal-note">導入會重新排列豆子；鎖定時只能換顏色。解鎖後就能繼續導入「{pending.name}」。</p>
-            {cardError && <p className="modal-alert" role="alert">{cardError}</p>}
-            <div className="modal-actions">
-              <button type="button" className="btn-quiet" onClick={close}>取消</button>
-              <button type="button" className="btn-primary" disabled={off} onClick={() => void unlock()}>解鎖形狀</button>
-            </div>
-          </>
-        ) : (
+        {pending && design && (
           <form onSubmit={(e) => { e.preventDefault(); void start(); }}>
             <p className="import-file">{pending.name}</p>
-            <p className="import-target">轉換到：目前版本<span className="muted">（{getVariant(design).name}）</span></p>
+            <p className="import-target">轉換到：目前作品<span className="muted">（{design.name}）</span></p>
             <div className="import-options">
               <label className="check">
                 <input type="checkbox" checked={removeBg} onChange={(e) => setRemoveBg(e.target.checked)} />
@@ -202,7 +179,7 @@ export function ImportOverlay({ design, editable, onNotice }: Props) {
               <button type="submit" className="btn-primary" disabled={off}>{busy ? '轉換中…' : '開始轉換'}</button>
             </div>
           </form>
-        ))}
+        )}
       </Dialog>
     </>
   );

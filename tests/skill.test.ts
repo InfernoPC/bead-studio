@@ -3,7 +3,7 @@ import { readFileSync, existsSync } from 'node:fs';
 
 const ROOT = '.claude/skills/bead-design';
 const TOOLS = ['get_design', 'describe_design', 'render_preview', 'get_palette', 'run_checks', 'apply_ops',
-  'create_variant', 'set_shape_lock', 'snapshot', 'set_board'];
+  'snapshot', 'set_board', 'import_image'];
 
 describe('bead-design skill', () => {
   const skill = readFileSync(`${ROOT}/SKILL.md`, 'utf8');
@@ -12,6 +12,13 @@ describe('bead-design skill', () => {
   });
   it('references the MCP tools it relies on', () => {
     for (const t of TOOLS) expect(skill).toContain(t);
+  });
+  it('does not mention removed variant tools', () => {
+    for (const t of ['create_variant', 'set_variant_mode', 'select_variant', 'set_shape_lock']) expect(skill).not.toContain(t);
+  });
+  it('asks the two inventory questions before designing', () => {
+    expect(skill).toMatch(/只用有的顏色/);
+    expect(skill).toMatch(/只用有的數量/);
   });
   it('links knowledge files that exist', () => {
     for (const f of ['color', 'shading', 'outline', 'structure', 'scale']) {

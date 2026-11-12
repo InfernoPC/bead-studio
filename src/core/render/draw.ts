@@ -1,4 +1,4 @@
-import type { DesignCore, Variant } from '../model';
+import type { DesignCore } from '../model';
 import type { Palette } from '../palette';
 
 type C2D = CanvasRenderingContext2D;
@@ -51,7 +51,7 @@ export function flatLayout(d: DesignCore, o: FlatOpts) {
   return { pad, w: d.cols * o.cell + pad * 2, h: d.rows * o.cell + pad * 2 };
 }
 
-export function drawFlat(ctx: C2D, d: DesignCore, v: Variant, p: Palette, o: FlatOpts): void {
+export function drawFlat(ctx: C2D, d: DesignCore, p: Palette, o: FlatOpts): void {
   const { pad, w, h } = flatLayout(d, o);
   const cs = o.cell;
   const ui = { ...UI, ...o.ui };
@@ -65,7 +65,7 @@ export function drawFlat(ctx: C2D, d: DesignCore, v: Variant, p: Palette, o: Fla
   ctx.fillStyle = ui.board; ctx.fillRect(pad, pad, d.cols * cs, d.rows * cs);
   for (let j = 0; j < d.rows; j++) for (let i = 0; i < d.cols; i++) {
     const cx = pad + i * cs + cs / 2, cy = pad + j * cs + cs / 2;
-    const code = v.cells[j * d.cols + i];
+    const code = d.cells[j * d.cols + i];
     const scale = code && o.beadScale ? o.beadScale(j * d.cols + i) : 1;
     if (!code || scale <= 0) {
       if (o.pegs !== false) { ctx.fillStyle = ui.peg; ctx.beginPath(); ctx.arc(cx, cy, Math.max(1, cs * 0.1), 0, Math.PI * 2); ctx.fill(); }
@@ -104,7 +104,7 @@ export type IsoOpts = {
   ui?: Partial<Pick<typeof UI, 'bg' | 'board' | 'boardEdge' | 'peg'>> & { rim?: string };
 };
 
-export function drawIso(ctx: C2D, d: DesignCore, v: Variant, p: Palette, o: IsoOpts): void {
+export function drawIso(ctx: C2D, d: DesignCore, p: Palette, o: IsoOpts): void {
   const S = o.size, tilt = ((o.tilt ?? 40) * Math.PI) / 180, yaw = ((o.yaw ?? 20) * Math.PI) / 180;
   const ct = Math.cos(tilt), st = Math.sin(tilt), cy = Math.cos(yaw), sy = Math.sin(yaw);
   const ironed = !!o.ironed, showBoard = o.board !== false;
@@ -128,7 +128,7 @@ export function drawIso(ctx: C2D, d: DesignCore, v: Variant, p: Palette, o: IsoO
   const items: { u: number; w: number; c: string | null; dep: number }[] = [];
   for (let j = 0; j < d.rows; j++) for (let i = 0; i < d.cols; i++) {
     const u = i - hw + 0.5, w = j - hh + 0.5;
-    items.push({ u, w, c: v.cells[j * d.cols + i], dep: raw(u, w, 0)[2] });
+    items.push({ u, w, c: d.cells[j * d.cols + i], dep: raw(u, w, 0)[2] });
   }
   items.sort((a, b) => a.dep - b.dep);
   const ex = R * s, ey = R * s * ct, hx = HOLE * s;
