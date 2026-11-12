@@ -95,6 +95,13 @@ button:disabled, button[aria-disabled="true"] { cursor: not-allowed; opacity: .4
   background-size: 18px 18px; background-position: 9px 9px;
   box-shadow: inset 0 2px 6px color-mix(in srgb, var(--ink) 12%, transparent);
 }
+/* 無釘板：舞台不畫點陣底紋、改用畫布的底色（對整片圓點會不舒服的人） */
+.stage.no-board { background-color: var(--canvas-bg); background-image: none; }
+
+/* 顯示方式：舞台上方，兩組分段控制靠左排 */
+.look-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.look-bar .seg { min-width: 132px; }
+.look-bar .seg-btn { font-size: var(--fs-sm); padding: 5px 12px; }
 .editor { position: absolute; inset: 0; touch-action: none; user-select: none; }
 .editor-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .empty-state {
@@ -286,9 +293,6 @@ button:disabled, button[aria-disabled="true"] { cursor: not-allowed; opacity: .4
 }
 .preview-canvas:active { cursor: grabbing; }
 .preview-controls { display: flex; flex-direction: column; gap: 8px; font-size: var(--fs-xs); }
-.preview-toggles { display: flex; gap: 16px; }
-.preview-check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
-.preview-check input { margin: 0; width: 15px; height: 15px; accent-color: var(--ink); cursor: pointer; }
 .preview-tilt { display: grid; grid-template-columns: auto minmax(0, 1fr) 3.2em; align-items: center; gap: 8px; }
 .preview-tilt input { width: 100%; margin: 0; accent-color: var(--ink-soft); }
 .preview-tilt output { text-align: right; color: var(--ink-soft); }
@@ -318,6 +322,7 @@ button:disabled, button[aria-disabled="true"] { cursor: not-allowed; opacity: .4
   flex-direction: row; align-items: center; justify-content: center; gap: 28px; font-size: var(--fs-sm);
 }
 .preview-dialog .preview-tilt { width: min(320px, 50vw); }
+.preview-dialog-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px 28px; }
 
 /* ---- 窄螢幕：右側面板移到舞台下方 ---- */
 @media (max-width: 899px) {

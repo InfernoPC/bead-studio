@@ -1,14 +1,17 @@
 // 3D 實體預覽：整個介面唯一用到 3D 的地方（編輯區維持平面）。以 core drawIso 畫霧面圓柱豆，
 // 拖曳旋轉、滾輪縮放；「放大」用 <dialog> 全螢幕顯示同一組畫布與控制項，兩邊共用同一份檢視狀態。
+// 燙前／燙後與釘板由外面傳入（和編輯區共用，開關在編輯區上方）。
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type KeyboardEvent, type PointerEvent, type SetStateAction } from 'react';
 import { bbox, type ClientDesign as Design } from '../../core/model';
 import { Palette, type PaletteColor } from '../../core/palette';
 import { drawIso, type IsoOpts } from '../../core/render/draw';
+import type { BoardLook } from '../lib/boardLook';
 import { readTokens } from '../lib/boardRender';
+import { LookToggle } from './LookToggle';
 import { useTheme } from '../lib/theme';
 
-type View = { board: boolean; ironed: boolean; tilt: number; yaw: number; zoom: number };
-const INITIAL: View = { board: true, ironed: false, tilt: 40, yaw: 20, zoom: 1 };
+type View = { tilt: number; yaw: number; zoom: number };
+const INITIAL: View = { tilt: 40, yaw: 20, zoom: 1 };
 const TILT_MAX = 65, ZOOM_MIN = 0.6, ZOOM_MAX = 3;
 /** 拖曳一個 CSS 像素轉幾度 */
 const DEG_PER_PX = 0.5;
@@ -36,10 +39,10 @@ function useReducedMotion() {
   return reduced;
 }
 
-type StageProps = { design: Design; palette: Palette; view: View; setView: Dispatch<SetStateAction<View>>; ui: IsoOpts['ui']; testId: string };
+type StageProps = { design: Design; palette: Palette; view: View; setView: Dispatch<SetStateAction<View>>; look: BoardLook; ui: IsoOpts['ui']; testId: string };
 
 /** 一塊正方形畫布：只在設計、檢視或主題變更時重畫（同一影格內的多次變更合併成一次） */
-function Stage({ design, palette, view, setView, ui, testId }: StageProps) {
+function Stage({ design, palette, view, setView, look, ui, testId }: StageProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [px, setPx] = useState(0); // 正方形邊長（裝置像素）
@@ -69,10 +72,10 @@ function Stage({ design, palette, view, setView, ui, testId }: StageProps) {
       const ctx = c?.getContext('2d');
       if (!c || !ctx) return;
       if (c.width !== px) { c.width = px; c.height = px; }
-      drawIso(ctx, design, palette, { size: px, ...view, ui });
+      drawIso(ctx, design, palette, { size: px, ...view, ...look, ui });
     });
     return () => cancelAnimationFrame(frame.current);
-  }, [design, palette, view, ui, px]);
+  }, [design, palette, view, look, ui, px]);
 
   /* ---------- 拖曳＝旋轉；放開後帶一點慣性（減少動畫時不帶） ---------- */
   const drag = useRef<{ id: number; x: number; t: number; v: number } | null>(null);
@@ -153,16 +156,6 @@ function Controls({ view, setView, idPrefix }: ControlsProps) {
   const tiltId = `${idPrefix}-tilt`;
   return (
     <div className="preview-controls">
-      <div className="preview-toggles">
-        <label className="preview-check">
-          <input type="checkbox" checked={view.board} onChange={(e) => { const board = e.target.checked; setView((v) => ({ ...v, board })); }} />
-          釘板
-        </label>
-        <label className="preview-check">
-          <input type="checkbox" checked={view.ironed} onChange={(e) => { const ironed = e.target.checked; setView((v) => ({ ...v, ironed })); }} />
-          燙後
-        </label>
-      </div>
       <div className="preview-tilt">
         <label htmlFor={tiltId}>傾斜</label>
         <input
@@ -175,9 +168,9 @@ function Controls({ view, setView, idPrefix }: ControlsProps) {
   );
 }
 
-type Props = { design: Design; palette: PaletteColor[] };
+type Props = { design: Design; palette: PaletteColor[]; look: BoardLook; onLook(patch: Partial<BoardLook>): void };
 
-export const Preview3D = memo(function Preview3D({ design, palette: colors }: Props) {
+export const Preview3D = memo(function Preview3D({ design, palette: colors, look, onLook }: Props) {
   const palette = useMemo(() => new Palette(colors), [colors]);
   const [view, setView] = useState<View>(INITIAL);
   const [expanded, setExpanded] = useState(false);
@@ -201,7 +194,7 @@ export const Preview3D = memo(function Preview3D({ design, palette: colors }: Pr
 
   return (
     <div className="preview">
-      <Stage design={design} palette={palette} view={view} setView={setView} ui={ui} testId="preview-canvas" />
+      <Stage design={design} palette={palette} view={view} setView={setView} look={look} ui={ui} testId="preview-canvas" />
       <Controls view={view} setView={setView} idPrefix="preview" />
       <div className="preview-foot">
         <p className="preview-size num">{size}</p>
@@ -224,8 +217,11 @@ export const Preview3D = memo(function Preview3D({ design, palette: colors }: Pr
               <p className="preview-size num">{size}</p>
               <button type="button" className="btn-quiet" onClick={() => setExpanded(false)}>關閉預覽</button>
             </div>
-            <Stage design={design} palette={palette} view={view} setView={setView} ui={ui} testId="preview-canvas-large" />
-            <Controls view={view} setView={setView} idPrefix="preview-large" />
+            <Stage design={design} palette={palette} view={view} setView={setView} look={look} ui={ui} testId="preview-canvas-large" />
+            <div className="preview-dialog-controls">
+              <LookToggle look={look} onLook={onLook} />
+              <Controls view={view} setView={setView} idPrefix="preview-large" />
+            </div>
           </div>
         )}
       </dialog>

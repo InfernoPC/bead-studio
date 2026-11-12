@@ -98,3 +98,59 @@ describe('drawIso theme override', () => {
     expect(dark.bead).toEqual(light.bead);
   });
 });
+
+describe('drawFlat look (燙後／無釘板)', () => {
+  const hex = (h: string) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16), 255];
+  const CS = 20;
+  function draw(o: Partial<FlatOpts>) {
+    // 兩顆相鄰的紅豆 (0,0)(1,0)；(4,4) 是空格
+    const d = paint(smallDesign(), [[0, 0, 'A1'], [1, 0, 'A1']]);
+    const opts: FlatOpts = { cell: CS, rulers: true, pegs: true, ...o };
+    const L = flatLayout(d, opts);
+    const c = createCanvas(L.w, L.h);
+    const ctx = c.getContext('2d');
+    drawFlat(ctx as unknown as CanvasRenderingContext2D, d, palette, opts);
+    const at = (x: number, y: number) => [...ctx.getImageData(Math.round(x), Math.round(y), 1, 1).data];
+    const p = L.pad;
+    return {
+      hole: at(p + CS / 2, p + CS / 2), // 第一顆豆的中心（燙前是中孔）
+      body: at(p + CS / 2 - 6, p + CS / 2), // 同一顆豆，中孔外的豆身
+      seam: at(p + CS, p + CS / 2), // 兩顆豆的交界
+      peg: at(p + 4 * CS + CS / 2, p + 4 * CS + CS / 2), // 空格的釘子
+      emptyBoard: at(p + 4 * CS + 2, p + 4 * CS + 2),
+    };
+  }
+  const red = (px: number[]) => px[0] > px[1] + 60;
+
+  it('燙前 draws round beads with a centre hole and a gap between neighbours', () => {
+    const p = draw({});
+    expect(p.body[0] - p.hole[0]).toBeGreaterThan(30); // 中孔比豆身暗
+    expect(red(p.seam)).toBe(false);
+  });
+  it('燙後 draws fused tiles: no centre hole, neighbours touch', () => {
+    const p = draw({ ironed: true });
+    expect(Math.abs(p.body[0] - p.hole[0])).toBeLessThan(15);
+    expect(red(p.hole)).toBe(true);
+    expect(red(p.seam)).toBe(true);
+  });
+  it('燙後 leaves no gap where four tiles meet, but rounds the outer corners', () => {
+    const d = paint(smallDesign(), [[0, 0, 'A1'], [1, 0, 'A1'], [0, 1, 'A1'], [1, 1, 'A1']]);
+    const opts: FlatOpts = { cell: CS, rulers: true, ironed: true };
+    const L = flatLayout(d, opts);
+    const c = createCanvas(L.w, L.h);
+    const ctx = c.getContext('2d');
+    drawFlat(ctx as unknown as CanvasRenderingContext2D, d, palette, opts);
+    const at = (x: number, y: number) => [...ctx.getImageData(x, y, 1, 1).data];
+    expect(red(at(L.pad + CS, L.pad + CS))).toBe(true); // 2×2 的正中間
+    expect(red(at(L.pad + CS - 1, L.pad + CS - 1))).toBe(true);
+    expect(red(at(L.pad, L.pad))).toBe(false); // 外角是圓的
+  });
+  it('無釘板 paints empty cells with the background and no pegs', () => {
+    const on = draw({});
+    expect(on.peg).toEqual(hex(UI.peg));
+    expect(on.emptyBoard).toEqual(hex(UI.board));
+    const off = draw({ board: false });
+    expect(off.peg).toEqual(hex(UI.bg));
+    expect(off.emptyBoard).toEqual(hex(UI.bg));
+  });
+});
