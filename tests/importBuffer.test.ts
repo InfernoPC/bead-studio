@@ -3,6 +3,7 @@ import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createCanvas } from '@napi-rs/canvas';
+import { embedDesign } from '../src/server/pngmeta';
 import { OpError } from '../src/core/errors';
 import { importImageBuffer, MAX_IMAGE_PIXELS } from '../src/server/importBuffer';
 import { readImageSize } from '../src/server/imageSize';
@@ -70,8 +71,19 @@ describe('importImageBuffer size limit', () => {
     ctx.fillStyle = '#2E7EC4'; ctx.fillRect(0, 0, 8, 8);
     const png = Buffer.from(await c.encode('png'));
     await importImageBuffer(store, png, { colors: ['H2'] });
-    expect(new Set(store.get().variants[0].cells.filter(Boolean))).toEqual(new Set(['H2']));
+    expect(new Set(store.get().cells.filter(Boolean))).toEqual(new Set(['H2']));
     const err = await importImageBuffer(store, png, { colors: ['NOPE'] }).catch((e) => e);
     expect(err.code).toBe('unknown_color');
+  });
+  it('treats old-format metadata as a plain image', async () => {
+    const c = createCanvas(8, 8); const ctx = c.getContext('2d');
+    ctx.fillStyle = '#2E7EC4'; ctx.fillRect(0, 0, 8, 8);
+    const d = store.get();
+    const old = { ...d, mask: '0'.repeat(d.cols * d.rows), variants: [{ id: 'v1', name: '理想版', paletteMode: 'all', cells: d.cells }], activeVariant: 'v1', shapeLocked: false };
+    const before = store.list().length;
+    const text = await importImageBuffer(store, embedDesign(Buffer.from(await c.encode('png')), old as any), {});
+    expect(text).toMatch(/metadata 無效/);
+    expect(text).toMatch(/已轉換圖片/);
+    expect(store.list().length).toBe(before);
   });
 });

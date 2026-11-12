@@ -1,6 +1,6 @@
 import { deltaE00 } from './color';
 import type { Pt } from './errors';
-import { countCodes, getVariant, type DesignCore } from './model';
+import { countCodes, type DesignCore } from './model';
 import type { Inventory, Palette } from './palette';
 
 /** holeMaxInset：掛孔與外側之間最多隔幾顆豆（掛環要穿得過去） */
@@ -12,12 +12,11 @@ export type Issue = { id: IssueId; message: string; cells: Pt[] };
 const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
 export function runChecks(
-  d: DesignCore, variantId: string | undefined,
+  d: DesignCore,
   ctx: { palette: Palette; inventory: Inventory; config: ChecksConfig },
 ): Issue[] {
-  const v = getVariant(d, variantId);
   const { cols, rows } = d;
-  const at = (x: number, y: number) => (x >= 0 && y >= 0 && x < cols && y < rows ? v.cells[y * cols + x] : null);
+  const at = (x: number, y: number) => (x >= 0 && y >= 0 && x < cols && y < rows ? d.cells[y * cols + x] : null);
   const occ = (x: number, y: number) => at(x, y) !== null;
   const deg = (x: number, y: number) => N4.filter(([dx, dy]) => occ(x + dx, y + dy)).length;
   const issues: Issue[] = [];
@@ -69,11 +68,11 @@ export function runChecks(
     }
   }
 
-  for (const [code, n] of Object.entries(countCodes(v.cells))) {
+  for (const [code, n] of Object.entries(countCodes(d.cells))) {
     const have = ctx.inventory[code]?.owned ? ctx.inventory[code].count : 0;
     if (n > have) {
       const cells: Pt[] = [];
-      v.cells.forEach((c, i) => { if (c === code) cells.push([i % cols, Math.floor(i / cols)]); });
+      d.cells.forEach((c, i) => { if (c === code) cells.push([i % cols, Math.floor(i / cols)]); });
       issues.push({ id: 'stock', message: have === 0 ? `${code} 沒有庫存，需購買 ${n} 顆` : `${code} 庫存不足：需要 ${n} 顆，缺 ${n - have} 顆`, cells });
     }
   }

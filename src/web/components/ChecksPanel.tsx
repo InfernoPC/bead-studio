@@ -12,7 +12,7 @@ export function useIssues(design: Design | null, palette: PaletteColor[] | undef
   return useMemo(() => {
     if (!deferred || !palette || !inventory || !config) return [];
     const { palette: pal } = makeCtx({ palette, inventory });
-    return runChecks(deferred, deferred.activeVariant, { palette: pal, inventory, config });
+    return runChecks(deferred, { palette: pal, inventory, config });
   }, [deferred, palette, inventory, config]);
 }
 

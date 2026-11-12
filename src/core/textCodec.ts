@@ -1,5 +1,5 @@
 import { OpError } from './errors';
-import { bbox, countCodes, getVariant, type DesignCore } from './model';
+import { bbox, countCodes, type DesignCore } from './model';
 import type { Region } from './opSchema';
 
 // 圖例字元：絕不含數字（RLE 用）、"."（空格）、"_"（清除）
@@ -37,9 +37,8 @@ export function unrle(s: string, max = Infinity): string {
   return out;
 }
 
-export function encodeDesignText(d: DesignCore, variantId?: string, region?: Region): string {
-  const v = getVariant(d, variantId);
-  const head = `${d.cols}x${d.rows} margin=${d.board.margin} bead=${d.board.bead} locked=${d.shapeLocked} variant=${v.id} ${v.name}(${v.paletteMode})`;
+export function encodeDesignText(d: DesignCore, region?: Region): string {
+  const head = `${d.cols}x${d.rows} margin=${d.board.margin} bead=${d.board.bead}`;
   const holes = d.markers.filter((m) => m.type === 'hole').map((m) => `(${m.x},${m.y})`).join(' ');
   const lines = [head];
   const inRegion = (i: number) => {
@@ -47,7 +46,7 @@ export function encodeDesignText(d: DesignCore, variantId?: string, region?: Reg
     const x = i % d.cols, y = Math.floor(i / d.cols);
     return x >= region.x && y >= region.y && x < region.x + region.w && y < region.y + region.h;
   };
-  const cells = region ? v.cells.map((c, i) => (inRegion(i) ? c : null)) : v.cells;
+  const cells = region ? d.cells.map((c, i) => (inRegion(i) ? c : null)) : d.cells;
   const b = bbox(d, cells);
   if (!b) { lines.push('bbox=none'); if (holes) lines.push(`holes: ${holes}`); return lines.join('\n'); }
   lines.push(`bbox=(${b.x0},${b.y0})-(${b.x1},${b.y1})`);

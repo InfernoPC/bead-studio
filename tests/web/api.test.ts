@@ -30,7 +30,7 @@ describe('toolError', () => {
   it('splits the OpError code from the message', () => {
     expect(toolError('would_crop: 新尺寸會裁掉 4 顆豆子；確認要裁切請加上 force: true'))
       .toEqual({ code: 'would_crop', message: '新尺寸會裁掉 4 顆豆子；確認要裁切請加上 force: true' });
-    expect(toolError('shape_locked（op #2）: 形狀已鎖定')).toEqual({ code: 'shape_locked', message: '形狀已鎖定' });
+    expect(toolError('unknown_color（op #2）: 未知色號 ZZ1')).toEqual({ code: 'unknown_color', message: '未知色號 ZZ1' });
   });
   it('keeps text without a code as the message', () => {
     expect(toolError('連不上伺服器。')).toEqual({ code: null, message: '連不上伺服器。' });
@@ -39,7 +39,7 @@ describe('toolError', () => {
 
 describe('exportUrl', () => {
   it('builds the export query', () => {
-    expect(exportUrl('d-1', { variant: 'all', view: 'pattern', scale: 2 })).toBe('/api/designs/d-1/export.png?view=pattern&variant=all&scale=2');
+    expect(exportUrl('d-1', { view: 'pattern', scale: 2 })).toBe('/api/designs/d-1/export.png?view=pattern&scale=2');
     expect(exportUrl('d-1')).toBe('/api/designs/d-1/export.png');
   });
 });

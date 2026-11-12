@@ -49,7 +49,7 @@ describe('BounceTracker', () => {
   const snap = (cells: (string | null)[], key = 'd1:v1:4x1') => ({ key, cols: 4, cells });
   const E = [null, null, null, null];
 
-  it('does not bounce on first load, design/variant/size switch, or reduced motion', () => {
+  it('does not bounce on first load, design/size switch, or reduced motion', () => {
     const b = new BounceTracker();
     b.update(snap(E), 'server', 0, false);
     expect(b.active).toBe(false);

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { DEFAULT_CHECKS, type ChecksConfig } from '../core/checks';
 import { parseDesign } from '../core/designSchema';
 import { OpError } from '../core/errors';
-import { coreOf, createDesign, getVariant, type Board, type Design, type DesignCore, type Snapshot } from '../core/model';
+import { coreOf, createDesign, type Board, type Design, type DesignCore, type Snapshot } from '../core/model';
 import { Palette, planDeduction, validatePalette, type DeductionPlan, type Inventory, type PaletteColor } from '../core/palette';
 
 export type StoreOpts = { dataDir: string; configDir: string; historyLimit?: number };
@@ -186,8 +186,8 @@ export class DesignStore extends EventEmitter {
   }
 
   /** 做完作品：擁有的顏色扣掉這個版本的用量（最少到 0），未擁有的不動。庫存不在作品的復原紀錄裡 */
-  deductInventory(design: Design, variant?: string): DeductionPlan {
-    const plan = planDeduction(getVariant(design, variant).cells, this.inventory);
+  deductInventory(design: Design): DeductionPlan {
+    const plan = planDeduction(design.cells, this.inventory);
     if (plan.deducted.length === 0) return plan;
     const inv = structuredClone(this.inventory);
     for (const r of plan.deducted) inv[r.code] = { ...inv[r.code], count: r.after };

@@ -9,9 +9,9 @@ export function makeCtx(snapshot: Pick<StateSnapshot, 'palette' | 'inventory'>):
 }
 
 /** 在本機套用 ops 做樂觀預覽；失敗時回傳 Error 而不是丟出。 */
-export function previewOps(design: Design, ops: unknown[], ctx: OpCtx, variant?: string): Design | Error {
+export function previewOps(design: Design, ops: unknown[], ctx: OpCtx): Design | Error {
   try {
-    return applyOps(design, ops, ctx, variant).design;
+    return applyOps(design, ops, ctx).design;
   } catch (e) {
     return e instanceof Error ? e : new Error(String(e));
   }
@@ -28,7 +28,7 @@ export function displayDesign(server: Design | null, pending: Pending | null, ct
   if (pending.baseVersion >= server.version) return pending.design;
   if (pending.commitVersion !== undefined && server.version >= pending.commitVersion) return server;
   if (!ctx || !pending.ops) return server;
-  const next = previewOps(server, pending.ops, ctx, pending.variant);
+  const next = previewOps(server, pending.ops, ctx);
   return next instanceof Error ? server : next;
 }
 

@@ -1,10 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { applyOps } from '../src/core/ops';
-import { getVariant } from '../src/core/model';
 import { OpError } from '../src/core/errors';
 import { smallDesign, paint, ctxAll } from './fixtures';
 
-const cell = (d: any, x: number, y: number) => getVariant(d).cells[y * d.cols + x];
+const cell = (d: any, x: number, y: number) => d.cells[y * d.cols + x];
 const block = (x0: number, y0: number, n: number, c: string) => {
   const pts: [number, number, string][] = [];
   for (let y = y0; y < y0 + n; y++) for (let x = x0; x < x0 + n; x++) pts.push([x, y, c]);
@@ -57,9 +56,5 @@ describe('effects', () => {
     }
     expect(err).toBeInstanceOf(OpError);
     expect((err as OpError).code).toBe('bad_op');
-  });
-  it('outer outline is rejected when shape is locked', () => {
-    const d = { ...paint(smallDesign(), [[4, 4, 'A1']]), shapeLocked: true };
-    expect(() => applyOps(d, [{ op: 'outline', target: 'shape', color: 'H2', side: 'outer' }], ctxAll)).toThrow(/形狀已鎖定/);
   });
 });

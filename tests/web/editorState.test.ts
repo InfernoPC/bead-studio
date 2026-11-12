@@ -43,20 +43,20 @@ describe('optimistic preview', () => {
   it('re-applies the stroke onto a newer server version (an AI edit) instead of dropping it', () => {
     const base = { ...smallDesign(), version: 5 };
     const ops = [{ op: 'rect', x: 0, y: 0, w: 1, h: 1, color: 'A1' }];
-    const pending = { baseVersion: 5, design: previewOps(base, ops, ctxAll) as typeof base, ops, variant: base.activeVariant };
+    const pending = { baseVersion: 5, design: previewOps(base, ops, ctxAll) as typeof base, ops };
     const ai = previewOps({ ...base, version: 6 }, [{ op: 'rect', x: 1, y: 1, w: 1, h: 1, color: 'H2' }], ctxAll) as typeof base;
     const shown = displayDesign({ ...ai, version: 6 }, pending, ctxAll)!;
-    const cells = shown.variants.find((v) => v.id === shown.activeVariant)!.cells;
+    const cells = shown.cells;
     expect(cells[0]).toBe('A1'); // 自己的這一筆還在
     expect(cells[1 * shown.cols + 1]).toBe('H2'); // AI 的修改也在
   });
   it('shows the server design once it reaches the committed version', () => {
     const base = { ...smallDesign(), version: 5 };
     const ops = [{ op: 'rect', x: 0, y: 0, w: 1, h: 1, color: 'A1' }];
-    const pending = { baseVersion: 5, design: previewOps(base, ops, ctxAll) as typeof base, ops, variant: base.activeVariant, commitVersion: 7 };
+    const pending = { baseVersion: 5, design: previewOps(base, ops, ctxAll) as typeof base, ops, commitVersion: 7 };
     const server7 = { ...base, version: 7, name: 'server' };
     expect(displayDesign(server7, pending, ctxAll)!.name).toBe('server');
-    expect(displayDesign({ ...base, version: 6, name: 'ai' }, pending, ctxAll)!.variants[0].cells[0]).toBe('A1');
+    expect(displayDesign({ ...base, version: 6, name: 'ai' }, pending, ctxAll)!.cells[0]).toBe('A1');
   });
   it('previewOps returns an Error instead of throwing', () => {
     expect(previewOps(smallDesign(), [{ op: 'rect', x: 0, y: 0, w: 1, h: 1, color: 'NOPE' }], ctxAll)).toBeInstanceOf(Error);

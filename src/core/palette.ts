@@ -7,8 +7,6 @@ export type PaletteColor = {
 };
 export type PaletteEntry = PaletteColor & { displayHex: string; lab: Lab; rgb: [number, number, number] };
 export type Inventory = Record<string, { owned: boolean; count: number }>;
-export type PaletteMode = 'all' | 'owned' | 'stock';
-
 const HEX = /^#[0-9A-Fa-f]{6}$/;
 
 export function validatePalette(colors: PaletteColor[]): string[] {
@@ -55,25 +53,6 @@ export class Palette {
     if (!e) return null;
     return this.nearestLab(e.lab, allowed)?.code ?? null;
   }
-}
-
-export function allowedCodes(p: Palette, inv: Inventory, mode: PaletteMode): Set<string> {
-  return new Set(
-    p.all()
-      .filter((c) => {
-        if (mode === 'all') return true;
-        const s = inv[c.code];
-        if (!s?.owned) return false;
-        return mode === 'owned' || s.count > 0;
-      })
-      .map((c) => c.code),
-  );
-}
-
-export function stockCapacity(inv: Inventory): Map<string, number> {
-  const m = new Map<string, number>();
-  for (const [code, s] of Object.entries(inv)) if (s.owned) m.set(code, s.count);
-  return m;
 }
 
 export type Deduction = { code: string; used: number; before: number; after: number };

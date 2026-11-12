@@ -1,4 +1,3 @@
-import { allocate } from './allocate';
 import { deltaE00, rgbToLab, type Lab } from './color';
 import { OpError } from './errors';
 import type { PaletteEntry } from './palette';
@@ -7,7 +6,7 @@ import type { PaletteEntry } from './palette';
 export type PixelRect = { x: number; y: number; w: number; h: number };
 export type ImportOpts = {
   cols: number; rows: number; margin: number; allowed: PaletteEntry[];
-  capacity?: Map<string, number>; removeBg?: boolean; dither?: boolean;
+  removeBg?: boolean; dither?: boolean;
   /** 只轉換原圖的這一塊 */
   crop?: PixelRect;
   /** 原圖上要當成背景略過的區塊（例如旁邊的文字）；座標以原圖為準，先於 crop 套用 */
@@ -97,10 +96,7 @@ export function imageToCells(src: Uint8Array | Uint8ClampedArray, srcW: number, 
   }
 
   const local: (string | null)[] = Array(outW * outH).fill(null);
-  if (o.capacity) {
-    const targets = samples.flatMap((s, i) => (s ? [{ index: i, lab: rgbToLab(s) }] : []));
-    allocate(targets, o.allowed, o.capacity).forEach((code, i) => { local[i] = code; });
-  } else if (o.dither) {
+  if (o.dither) {
     const buf = samples.map((s) => (s ? [...s] : null));
     for (let i = 0; i < buf.length; i++) {
       const s = buf[i];

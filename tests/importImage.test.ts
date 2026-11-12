@@ -45,11 +45,6 @@ describe('imageToCells', () => {
     expect(cells).toEqual(['C1', null, 'C1', 'C1']);
     expect(() => imageToCells(rgba, 4, 2, { cols: 2, rows: 2, margin: 0, allowed, crop: { x: 9, y: 0, w: 2, h: 2 } })).toThrow(/裁切範圍/);
   });
-  it('respects stock capacity', () => {
-    const rgba = img(3, 1, () => [232, 67, 79, 255]);
-    const cells = imageToCells(rgba, 3, 1, { cols: 3, rows: 1, margin: 0, allowed, capacity: new Map([['A1', 1], ['H2', 5]]) });
-    expect(cells.filter((c) => c === 'A1')).toHaveLength(1);
-  });
   it('preserves aspect ratio', () => {
     const rgba = img(4, 2, () => [17, 17, 17, 255]);
     const cells = imageToCells(rgba, 4, 2, { cols: 4, rows: 4, margin: 0, allowed });

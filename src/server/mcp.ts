@@ -5,12 +5,11 @@ import { setBoard } from '../core/board';
 import { formatIssues, runChecks } from '../core/checks';
 import { describeDesign } from '../core/describe';
 import { OpError } from '../core/errors';
-import { getVariant, type Design } from '../core/model';
+import type { Design } from '../core/model';
 import { MAX_BOARD_MM, MAX_OPS, OpSchema, RegionSchema } from '../core/opSchema';
 import { applyOps, type Summary } from '../core/ops';
 import { encodeDesignText } from '../core/textCodec';
-import { allowedCodes, type DeductionPlan } from '../core/palette';
-import { createVariant, recolorVariant, selectVariant } from '../core/variants';
+import type { DeductionPlan } from '../core/palette';
 import { resolveUserPath, type PathOpts } from './paths';
 import { importImageBuffer } from './importBuffer';
 import { embedDesign } from './pngmeta';
@@ -19,10 +18,8 @@ import type { DesignStore } from './store';
 
 export type Vision = 'auto' | 'on' | 'off';
 
-const Mode = z.enum(['all', 'owned', 'stock']);
 const ViewE = z.enum(['flat', 'pattern', '3d', 'ironed']);
 const designId = z.string().optional().describe('作品 id；省略時用目前開啟的作品');
-const variant = z.string().optional().describe('配色版本 id（例如 v1）；省略時用目前顯示的版本');
 const PixelRect = z.object({ x: z.number().int().min(0), y: z.number().int().min(0), w: z.number().int().min(1), h: z.number().int().min(1) });
 
 type Content = { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string };
@@ -46,21 +43,20 @@ function summaryText(s: Summary, checks: string): string {
   const total = Object.values(s.delta).reduce((a, b) => a + b, 0);
   const delta = Object.entries(s.delta).map(([k, v]) => `${k} ${v > 0 ? '+' : ''}${v}`).join(', ') || '無';
   return [
-    `OK 版本 ${s.variant} 共 ${s.total} 顆（${total >= 0 ? '+' : ''}${total}）`,
+    `OK 共 ${s.total} 顆（${total >= 0 ? '+' : ''}${total}）`,
     `變化：${delta}`,
     s.clipped ? `裁切：${s.clipped} 格超出畫布被略過` : '',
     `檢查：\n${checks}`,
   ].filter(Boolean).join('\n');
 }
 
-function deductionText(d: Design, variant: string, plan: DeductionPlan): string {
-  const name = getVariant(d, variant).name;
+function deductionText(d: Design, plan: DeductionPlan): string {
   const tail = [
     plan.outOfStock.length ? `已經沒有庫存（不夠）：${plan.outOfStock.map((r) => `${r.code} 不夠 ${r.used} 顆`).join('、')}` : '',
     plan.skipped.length ? `未擁有、沒有扣：${plan.skipped.map((r) => r.code).join('、')}` : '',
   ];
   if (plan.deducted.length === 0) {
-    return [`「${d.name}」（${name}）沒有用到還有庫存的顏色，庫存沒有變動。`, ...tail].filter(Boolean).join('\n');
+    return [`「${d.name}」沒有用到還有庫存的顏色，庫存沒有變動。`, ...tail].filter(Boolean).join('\n');
   }
   const out = plan.deducted.map((r) => {
     const short = r.used - r.before;
@@ -68,7 +64,7 @@ function deductionText(d: Design, variant: string, plan: DeductionPlan): string 
   });
   const empty = plan.deducted.filter((r) => r.after === 0).map((r) => r.code);
   return [
-    `已從庫存扣掉「${d.name}」（${name}）用掉的豆子：`,
+    `已從庫存扣掉「${d.name}」用掉的豆子：`,
     ...out,
     empty.length ? `扣到 0 的色號：${empty.join('、')}` : '',
     ...tail,
@@ -78,8 +74,8 @@ function deductionText(d: Design, variant: string, plan: DeductionPlan): string 
 export function buildMcpServer(store: DesignStore, opts: { vision?: Vision } & PathOpts = {}): McpServer {
   const vision = opts.vision ?? 'auto';
   const server = new McpServer({ name: 'bead-studio', version: '0.1.0' });
-  const checksText = (id?: string, v?: string) =>
-    formatIssues(runChecks(store.get(id), v, { ...store.ctx(), config: store.checks }));
+  const checksText = (id?: string) =>
+    formatIssues(runChecks(store.get(id), { ...store.ctx(), config: store.checks }));
 
   server.registerTool('list_designs', { description: '列出所有作品（* 表示目前開啟）', inputSchema: {} },
     wrap(() => ok(store.list().map((d) => `${d.current ? '*' : ' '} ${d.id} ${d.name} v${d.version}`).join('\n') || '（沒有作品）')));
@@ -100,38 +96,36 @@ export function buildMcpServer(store: DesignStore, opts: { vision?: Vision } & P
 
   server.registerTool('get_design', {
     description: '讀取設計（只回傳有豆子的範圍，每列 RLE：數字=重複次數，"."=空格）。region {x,y,w,h} 可只讀取某一區',
-    inputSchema: { designId, variant, region: RegionSchema.optional() },
-  }, wrap(({ designId: id, variant: v, region }) => ok(encodeDesignText(store.get(id), v, region))));
+    inputSchema: { designId, region: RegionSchema.optional() },
+  }, wrap(({ designId: id, region }) => ok(encodeDesignText(store.get(id), region))));
 
   server.registerTool('describe_design', {
     description: '用文字描述設計：對稱性、色塊分佈、外框、低對比、縮圖。不能看圖時用它檢查成果',
-    inputSchema: { designId, variant },
-  }, wrap(({ designId: id, variant: v }) => ok(describeDesign(store.get(id), v, store.palette))));
+    inputSchema: { designId },
+  }, wrap(({ designId: id }) => ok(describeDesign(store.get(id), store.palette))));
 
   server.registerTool('render_preview', {
-    description: '渲染預覽圖。view: flat 平面 / pattern 施工圖 / 3d 立體 / ironed 燙後；variant 填 "all" 會並排所有版本',
-    inputSchema: { designId, variant, view: ViewE.default('flat'), scale: z.number().min(0.5).max(3).default(1) },
-  }, wrap(async ({ designId: id, variant: v, view, scale }) => {
+    description: '渲染預覽圖。view: flat 平面 / pattern 施工圖 / 3d 立體 / ironed 燙後',
+    inputSchema: { designId, view: ViewE.default('flat'), scale: z.number().min(0.5).max(3).default(1) },
+  }, wrap(async ({ designId: id, view, scale }) => {
     const d = store.get(id);
-    if (vision === 'off') return ok(describeDesign(d, v === 'all' ? undefined : v, store.palette));
-    const png = await renderPng(d, store.palette, { variant: v, view: view as View, scale });
+    if (vision === 'off') return ok(describeDesign(d, store.palette));
+    const png = await renderPng(d, store.palette, { view: view as View, scale });
     return { content: [{ type: 'image' as const, data: png.toString('base64'), mimeType: 'image/png' }] };
   }));
 
   server.registerTool('get_palette', {
-    description: '列出顏色：每行「色號 名稱 hex 庫存N」。mode 省略時用該版本的色彩範圍',
-    inputSchema: { mode: Mode.optional(), designId, variant },
-  }, wrap(({ mode, designId: id, variant: v }) => {
-    const m = mode ?? getVariant(store.get(id), v).paletteMode;
-    const codes = allowedCodes(store.palette, store.inventory, m);
-    return ok(store.palette.entries(codes).map((e) => {
+    description: '列出所有顏色：每行「色號 名稱 hex 庫存N」（庫存0 代表沒有這個顏色）',
+    inputSchema: {},
+  }, wrap(() => {
+    return ok(store.palette.all().map((e) => {
       const s = store.inventory[e.code];
       return `${e.code} ${e.name} ${e.displayHex} 庫存${s?.owned ? s.count : 0}${e.transparent ? ' 透明' : ''}`;
     }).join('\n'));
   }));
 
-  server.registerTool('run_checks', { description: '執行檢查器（留邊、浮豆、細線、掛孔、庫存、對比）', inputSchema: { designId, variant } },
-    wrap(({ designId: id, variant: v }) => ok(checksText(id, v))));
+  server.registerTool('run_checks', { description: '執行檢查器（留邊、浮豆、細線、掛孔、庫存、對比）', inputSchema: { designId } },
+    wrap(({ designId: id }) => ok(checksText(id))));
 
   server.registerTool('apply_ops', {
     description: [
@@ -143,12 +137,12 @@ export function buildMcpServer(store: DesignStore, opts: { vision?: Vision } & P
       'gradient{target,colors[],direction:h|v|radial|角度,region?,dither?}、shade{target,light:tl|t|tr|l|r|bl|b|br,highlight,shadow,depth?}、',
       'set_hole{x,y,remove?}',
     ].join(''),
-    inputSchema: { designId, variant, ops: z.array(OpSchema).min(1).max(MAX_OPS) },
-  }, wrap(({ designId: id, variant: v, ops }) => {
+    inputSchema: { designId, ops: z.array(OpSchema).min(1).max(MAX_OPS) },
+  }, wrap(({ designId: id, ops }) => {
     let summary!: Summary;
-    const d = store.update(id, (cur) => { const r = applyOps(cur, ops, store.ctx(), v); summary = r.summary; return r.design; });
+    const d = store.update(id, (cur) => { const r = applyOps(cur, ops, store.ctx()); summary = r.summary; return r.design; });
     // structuredContent 的版本給網頁判斷「伺服器的設計已含這一筆」；AI 只看文字
-    return { ...ok(summaryText(summary, checksText(d.id, summary.variant))), structuredContent: { version: d.version } };
+    return { ...ok(summaryText(summary, checksText(d.id))), structuredContent: { version: d.version } };
   }));
 
   server.registerTool('set_board', {
@@ -165,29 +159,6 @@ export function buildMcpServer(store: DesignStore, opts: { vision?: Vision } & P
     return ok(`面板 ${d.board.widthMm}×${d.board.heightMm}mm、${d.board.bead}mm 豆 → ${d.cols}×${d.rows} 格，留邊 ${d.board.margin}${cropped ? `，裁掉 ${cropped} 顆` : ''}`);
   }));
 
-  server.registerTool('create_variant', {
-    description: '從現有版本複製出新配色版本，依色彩範圍自動換成最接近的顏色（stock 模式會遵守庫存數量）',
-    inputSchema: { designId, name: z.string(), paletteMode: Mode, from: z.string().optional() },
-  }, wrap(({ designId: id, name, paletteMode, from }) => {
-    let vid = '';
-    store.update(id, (cur) => { const r = createVariant(cur, { name, paletteMode, from }, store.ctx()); vid = r.id; return r.design; });
-    return ok(`已建立配色版本 ${vid}「${name}」（${paletteMode}）`);
-  }));
-
-  server.registerTool('set_variant_mode', {
-    description: '變更某版本的色彩範圍並重新對色',
-    inputSchema: { designId, variant: z.string(), paletteMode: Mode },
-  }, wrap(({ designId: id, variant: v, paletteMode }) => {
-    store.update(id, (cur) => recolorVariant(cur, v, store.ctx(), { mode: paletteMode }));
-    return ok(`版本 ${v} 已改為 ${paletteMode} 並重新對色`);
-  }));
-
-  server.registerTool('select_variant', { description: '切換目前顯示的配色版本', inputSchema: { designId, variant: z.string() } },
-    wrap(({ designId: id, variant: v }) => { store.update(id, (cur) => selectVariant(cur, v)); return ok(`目前版本：${v}`); }));
-
-  server.registerTool('set_shape_lock', { description: '鎖定形狀（只能換色）或解鎖', inputSchema: { designId, locked: z.boolean() } },
-    wrap(({ designId: id, locked }) => { store.update(id, (cur) => ({ ...cur, shapeLocked: locked })); return ok(locked ? '🔒 形狀已鎖定' : '🔓 形狀已解鎖'); }));
-
   server.registerTool('calibrate_color', {
     description: '校正某色號的顯示色（讓螢幕更接近實物）；hex 填 null 清除校正',
     inputSchema: { code: z.string(), hex: z.string().nullable() },
@@ -197,21 +168,21 @@ export function buildMcpServer(store: DesignStore, opts: { vision?: Vision } & P
     description: (opts.filesDir ? `只能使用 ${opts.filesDir} 裡的檔案。` : '') + '導入圖片。含 bead-studio metadata 的 PNG 會還原成新作品；其他圖片會轉換到目前作品的指定版本（覆蓋原內容）。'
       + 'removeBg 只去掉從圖片外圍連進來的背景色（被外框圍住的同色區塊會保留）；colors 限定只用哪些色號；crop 只取原圖某一塊；exclude 把原圖上的區塊（例如文字）當背景略過。crop／exclude 的座標是原圖像素',
     inputSchema: {
-      path: z.string(), designId, variant, removeBg: z.boolean().default(false), dither: z.boolean().default(false),
+      path: z.string(), designId, removeBg: z.boolean().default(false), dither: z.boolean().default(false),
       colors: z.array(z.string().min(1)).min(1).max(64).optional(),
       crop: PixelRect.optional(), exclude: z.array(PixelRect).max(32).optional(),
     },
-  }, wrap(async ({ path, designId: id, variant: v, removeBg, dither, colors, crop, exclude }) =>
-    ok(await importImageBuffer(store, readFileSync(resolveUserPath(path, opts)), { designId: id, variant: v, removeBg, dither, colors, crop, exclude }))));
+  }, wrap(async ({ path, designId: id, removeBg, dither, colors, crop, exclude }) =>
+    ok(await importImageBuffer(store, readFileSync(resolveUserPath(path, opts)), { designId: id, removeBg, dither, colors, crop, exclude }))));
 
   server.registerTool('export_png', {
-    description: (opts.filesDir ? `只能寫到 ${opts.filesDir} 裡。` : '') + '匯出 PNG（含可還原的 metadata）。variant 填 "all" 會並排所有版本',
-    inputSchema: { path: z.string(), designId, variant, view: ViewE.default('flat'), scale: z.number().min(0.5).max(4).default(2) },
-  }, wrap(async ({ path, designId: id, variant: v, view, scale }) => {
+    description: (opts.filesDir ? `只能寫到 ${opts.filesDir} 裡。` : '') + '匯出 PNG（含可還原的 metadata）',
+    inputSchema: { path: z.string(), designId, view: ViewE.default('flat'), scale: z.number().min(0.5).max(4).default(2) },
+  }, wrap(async ({ path, designId: id, view, scale }) => {
     if (!path.toLowerCase().endsWith('.png')) throw new OpError('bad_path', `匯出路徑必須以 .png 結尾：${path}`);
     const target = resolveUserPath(path, opts);
     const d = store.get(id);
-    writeFileSync(target, embedDesign(await renderPng(d, store.palette, { variant: v, view: view as View, scale }), d));
+    writeFileSync(target, embedDesign(await renderPng(d, store.palette, { view: view as View, scale }), d));
     return ok(`已匯出 ${path}`);
   }));
 
@@ -225,12 +196,11 @@ export function buildMcpServer(store: DesignStore, opts: { vision?: Vision } & P
   }));
 
   server.registerTool('deduct_inventory', {
-    description: '使用者做完作品後扣庫存：擁有的顏色扣掉這個版本的用量（最少扣到 0），未擁有的色號不動。不能復原，呼叫前先跟使用者確認',
-    inputSchema: { designId, variant },
-  }, wrap(({ designId: id, variant: v }) => {
+    description: '使用者做完作品後扣庫存：擁有的顏色扣掉這個作品的用量（最少扣到 0），未擁有的色號不動。不能復原，呼叫前先跟使用者確認',
+    inputSchema: { designId },
+  }, wrap(({ designId: id }) => {
     const d = store.get(id);
-    const vid = getVariant(d, v).id;
-    return ok(deductionText(d, vid, store.deductInventory(d, vid)));
+    return ok(deductionText(d, store.deductInventory(d)));
   }));
 
   server.registerTool('snapshot', { description: '儲存快照（大改之前建議先存）', inputSchema: { designId, name: z.string() } },

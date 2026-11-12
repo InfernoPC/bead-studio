@@ -49,8 +49,9 @@ describe('png metadata', () => {
     expect(d.markers).toEqual([]);
     expect(d.snapshots).toEqual([]);
   });
-  it('returns null for a bad activeVariant but still reports metadata present', async () => {
-    const png = embedDesign(await renderPng(smallDesign(), palette, {}), { ...smallDesign(), activeVariant: 'v9' });
+  it('returns null for the old multi-variant format but still reports metadata present', async () => {
+    const old = { ...smallDesign(), mask: '0'.repeat(100), variants: [{ id: 'v1', name: '理想版', paletteMode: 'all', cells: smallDesign().cells }], activeVariant: 'v1', shapeLocked: false };
+    const png = embedDesign(await renderPng(smallDesign(), palette, {}), old as any);
     expect(extractDesign(png)).toBeNull();
     expect(hasDesignMeta(png)).toBe(true);
     expect(hasDesignMeta(await renderPng(smallDesign(), palette, {}))).toBe(false);

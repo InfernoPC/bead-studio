@@ -14,8 +14,7 @@ export async function current(page: Page): Promise<{ version: number; total: num
   const res = await page.request.get('/api/state');
   const s = await res.json();
   const d = s.current;
-  const v = d.variants.find((x: { id: string }) => x.id === d.activeVariant);
-  return { version: d.version, total: v.cells.filter(Boolean).length, cells: v.cells };
+  return { version: d.version, total: d.cells.filter(Boolean).length, cells: d.cells };
 }
 
 /** 格子 (i, j) 中心在頁面上的座標（依 canvas 上公開的檢視參數換算） */

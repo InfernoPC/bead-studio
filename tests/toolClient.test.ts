@@ -48,6 +48,6 @@ describe('importImageBuffer', () => {
     ctx.fillStyle = '#2E7EC4'; ctx.fillRect(0, 0, 4, 4);
     const text = await importImageBuffer(store, await c.encode('png'), {});
     expect(text).toMatch(/轉換/);
-    expect(store.get().variants[0].cells.filter((x) => x === 'C1').length).toBe(64);
+    expect(store.get().cells.filter((x) => x === 'C1').length).toBe(64);
   });
 });

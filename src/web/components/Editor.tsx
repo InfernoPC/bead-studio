@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type PointerEvent as ReactPointerEvent } from 'react';
-import { getVariant, type ClientDesign as Design } from '../../core/model';
+import type { ClientDesign as Design } from '../../core/model';
 import type { Op } from '../../core/opSchema';
 import { drawBeadFlat, flatLayout } from '../../core/render/draw';
 import { drawBoard, readTokens } from '../lib/boardRender';
@@ -28,10 +28,9 @@ function isControl(t: EventTarget | null): boolean {
 
 type Gesture =
   | { kind: 'pan'; x: number; y: number; ox: number; oy: number }
-  // variant：這一筆開始時的配色版本；拖曳途中切換版本（例如 AI 切換）也不會改畫到別的版本
-  | { kind: 'paint'; base: Design; variant: string; color: string | null; cells: Cell[]; seen: Set<number>; last: Cell | null }
+  | { kind: 'paint'; base: Design; color: string | null; cells: Cell[]; seen: Set<number>; last: Cell | null }
   // 直線與圓形：拖曳兩點決定形狀；circle（Shift）＝正圓、filled（Option／Alt）＝實心
-  | { kind: 'line'; shape: 'line' | 'ellipse'; base: Design; variant: string; color: string; from: Cell; to: Cell; circle: boolean; filled: boolean };
+  | { kind: 'line'; shape: 'line' | 'ellipse'; base: Design; color: string; from: Cell; to: Cell; circle: boolean; filled: boolean };
 
 /** 平面編輯區：繪製、縮放平移、繪圖工具。所有修改都透過 callTool 送到伺服器。 */
 export function Editor({ snapshot, design, editor, dispatch, editable, onNotice }: Props) {
@@ -51,7 +50,6 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
   const overStage = useRef(false);
   const [space, setSpace] = useState(false);
   const [panning, setPanning] = useState(false);
-  const [forbidden, setForbidden] = useState(false);
   const gesture = useRef<Gesture | null>(null);
   const hover = useRef<Cell | null>(null);
   // 亮暗主題切換時重讀 tokens；drawNow 跟著變，下方的 effect 就會重畫
@@ -122,7 +120,7 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
     const local = !!editor.pending && shown === editor.pending.design;
     const source = !local ? 'server' : g && g.kind !== 'pan' ? 'stroke' : 'local';
     bounce.update(
-      { key: `${shown.id}:${shown.activeVariant}:${shown.cols}x${shown.rows}`, cols: shown.cols, cells: getVariant(shown).cells, mirror: live.current.editor.mirror },
+      { key: `${shown.id}:${shown.cols}x${shown.rows}`, cols: shown.cols, cells: shown.cells, mirror: live.current.editor.mirror },
       source, performance.now(), reducedMotion.current,
     );
   }, [shown]);
@@ -135,7 +133,7 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
     frame.current = 0;
     const c = boardRef.current, { view: vw, size: sz, shown: d, editor: ed } = live.current;
     if (!c || !sz.w) return;
-    const cellAnim = bounce.frame(performance.now(), getVariant(d).cells);
+    const cellAnim = bounce.frame(performance.now(), d.cells);
     const ctx = c.getContext('2d')!;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, c.width, c.height);
@@ -166,17 +164,15 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
     ctx.setTransform(k, 0, 0, k, sz.dpr * vw.offsetX, sz.dpr * vw.offsetY);
     const cs = vw.cell;
     const cx = vw.pad + h[0] * cs + cs / 2, cy = vw.pad + h[1] * cs + cs / 2;
-    const dataX = ed.mirror ? d.cols - 1 - h[0] : h[0];
-    const blocked = isForbidden(d, ed.tool, dataX, h[1]);
     // 色表裡沒有目前顏色（例如色表剛換掉）就不畫預覽豆
     const ghost = ed.tool === 'pen' && ed.color ? opCtx.palette.get(ed.color)?.displayHex : undefined;
-    if (ghost && !blocked) {
+    if (ghost) {
       ctx.globalAlpha = 0.6;
       drawBeadFlat(ctx, cx, cy, cs * 0.47, ghost, tokens.ui.rim);
       ctx.globalAlpha = 1;
     }
     ctx.lineWidth = Math.max(1, cs * 0.08);
-    ctx.strokeStyle = blocked ? tokens.alert : tokens.inkSoft;
+    ctx.strokeStyle = tokens.inkSoft;
     if (ed.tool === 'eraser' || ed.tool === 'hole') ctx.setLineDash([cs * 0.16, cs * 0.12]);
     ctx.beginPath(); ctx.arc(cx, cy, cs * 0.5, 0, Math.PI * 2); ctx.stroke();
     ctx.setLineDash([]);
@@ -195,9 +191,8 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
   useEffect(() => { drawOverlay(); }, [editor.tool, editor.color, editable, drawOverlay]);
 
   /* ---------- 送出指令 ---------- */
-  /** 明確指定配色版本送出，伺服器上的目前版本在這之間被切換也不會改畫到別的版本 */
-  const send = useCallback(async (base: Design, ops: Op[], variant = base.activeVariant) => {
-    const res = await callTool('apply_ops', { designId: base.id, variant, ops });
+  const send = useCallback(async (base: Design, ops: Op[]) => {
+    const res = await callTool('apply_ops', { designId: base.id, ops });
     // 送出有結果了：還沒等到回聲的自己的格子，過一陣子就不再當成自己的
     if (!gesture.current) bounce.settle(performance.now());
     if (res.ok) {
@@ -209,10 +204,10 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
     else { dispatch({ type: 'clearPreview' }); onNotice(res.text); }
   }, [dispatch, onNotice]);
 
-  const preview = useCallback((base: Design, ops: Op[], variant = base.activeVariant) => {
-    const next = previewOps(base, ops, opCtx, variant);
+  const preview = useCallback((base: Design, ops: Op[]) => {
+    const next = previewOps(base, ops, opCtx);
     if (next instanceof Error) dispatch({ type: 'clearPreview' });
-    else dispatch({ type: 'preview', pending: { baseVersion: base.version, design: next, ops, variant } });
+    else dispatch({ type: 'preview', pending: { baseVersion: base.version, design: next, ops } });
   }, [dispatch, opCtx]);
 
   const needColor = useCallback(() => {
@@ -232,22 +227,18 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
     return ed.mirror ? [d.cols - 1 - c[0], c[1]] : c;
   };
 
-  /** 這一筆的基底落後伺服器時改用最新版本（並重新套用形狀鎖定的過濾）；有改變時回傳 true */
+  /** 這一筆的基底落後伺服器時改用最新版本；有改變時回傳 true */
   const rebase = (g: Extract<Gesture, { kind: 'paint' | 'line' }>): boolean => {
     const latest = live.current.design;
     if (latest.id !== g.base.id || latest.version === g.base.version) return false;
     g.base = latest;
-    if (g.kind === 'paint') {
-      const tool = g.color ? 'pen' : 'eraser';
-      g.cells = g.cells.filter((p) => !isForbidden(latest, tool, p[0], p[1]));
-    }
     return true;
   };
 
   const previewGesture = (g: Extract<Gesture, { kind: 'paint' | 'line' }>) => {
-    if (g.kind === 'line') { preview(g.base, [shapeOp(g)], g.variant); return; }
+    if (g.kind === 'line') { preview(g.base, [shapeOp(g)]); return; }
     const op = strokeToPaste(g.cells, g.color);
-    if (op) preview(g.base, [op], g.variant);
+    if (op) preview(g.base, [op]);
     else dispatch({ type: 'clearPreview' });
   };
 
@@ -255,13 +246,11 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
     const rebased = rebase(g);
     const path = g.last ? interpolate(g.last, c) : [c];
     g.last = c;
-    const tool = g.color ? 'pen' : 'eraser';
     let added = false;
     for (const p of path) {
       const k = p[1] * g.base.cols + p[0];
       if (g.seen.has(k)) continue;
       g.seen.add(k);
-      if (isForbidden(g.base, tool, p[0], p[1])) continue;
       g.cells.push(p); added = true;
     }
     if (added || rebased) previewGesture(g);
@@ -282,12 +271,11 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
     const c = dataCellAt(px, py);
     if (!c) return;
     const [x, y] = c;
-    const code = getVariant(base).cells[y * base.cols + x];
+    const code = base.cells[y * base.cols + x];
     switch (ed.tool) {
       case 'pen': case 'eraser': {
         if (ed.tool === 'pen' && !ed.color) { needColor(); return; }
-        if (isForbidden(base, ed.tool, x, y)) return;
-        const g: Gesture = { kind: 'paint', base, variant: base.activeVariant, color: ed.tool === 'pen' ? ed.color : null, cells: [], seen: new Set(), last: null };
+        const g: Gesture = { kind: 'paint', base, color: ed.tool === 'pen' ? ed.color : null, cells: [], seen: new Set(), last: null };
         gesture.current = g;
         e.currentTarget.setPointerCapture(e.pointerId);
         addToStroke(g, c);
@@ -296,7 +284,7 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
       case 'line': case 'ellipse': {
         if (!ed.color) { needColor(); return; }
         const g: Gesture = {
-          kind: 'line', shape: ed.tool, base, variant: base.activeVariant, color: ed.color, from: c, to: c,
+          kind: 'line', shape: ed.tool, base, color: ed.color, from: c, to: c,
           circle: e.shiftKey, filled: e.altKey,
         };
         gesture.current = g;
@@ -342,8 +330,6 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
     const prev = hover.current;
     if (disp?.[0] !== prev?.[0] || disp?.[1] !== prev?.[1]) {
       hover.current = disp;
-      const c = dataCellAt(px, py);
-      setForbidden(!!c && live.current.editable && isForbidden(live.current.design, ed.tool, c[0], c[1]));
       drawOverlay();
     }
     const c = dataCellAt(px, py);
@@ -364,17 +350,16 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
     if (!commit) { dispatch({ type: 'clearPreview' }); bounce.settle(performance.now()); return; }
     if (g.kind === 'paint') {
       const op = strokeToPaste(g.cells, g.color);
-      if (op) void send(g.base, [op], g.variant);
+      if (op) void send(g.base, [op]);
       else dispatch({ type: 'clearPreview' });
     } else {
-      void send(g.base, [shapeOp(g)], g.variant);
+      void send(g.base, [shapeOp(g)]);
     }
   };
 
   const onPointerLeave = () => {
     overStage.current = false;
     hover.current = null;
-    setForbidden(false);
     drawOverlay();
   };
 
@@ -446,8 +431,7 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
     };
   }, [onNotice]);
 
-  const cursor = panning ? 'grabbing' : space ? 'grab' : !editable ? 'default'
-    : forbidden ? 'not-allowed' : 'crosshair';
+  const cursor = panning ? 'grabbing' : space ? 'grab' : !editable ? 'default' : 'crosshair';
 
   return (
     <div
@@ -468,10 +452,3 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
 const lineOp = (a: Cell, b: Cell, color: string): Op => ({ op: 'line', x1: a[0], y1: a[1], x2: b[0], y2: b[1], color });
 const shapeOp = (g: Extract<Gesture, { kind: 'line' }>): Op =>
   g.shape === 'ellipse' ? ellipseFromDrag(g.from, g.to, g.color, { circle: g.circle, filled: g.filled }) : lineOp(g.from, g.to, g.color);
-
-/** 形狀鎖定時：畫筆不能畫在空格、橡皮擦不能擦有豆的格子 */
-function isForbidden(d: Design, tool: EditorState['tool'], x: number, y: number): boolean {
-  if (!d.shapeLocked || (tool !== 'pen' && tool !== 'eraser')) return false;
-  const filled = !!getVariant(d).cells[y * d.cols + x];
-  return tool === 'pen' ? !filled : filled;
-}

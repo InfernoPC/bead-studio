@@ -123,8 +123,8 @@ describe('/ws', () => {
 
     await post('apply_ops', { ops: [{ op: 'clear', region: { x: 0, y: 0, w: 10, h: 10 } }] });
     expect((await post('restore_snapshot', { snapshotId: listed.id })).ok).toBe(true);
-    await until(() => msgs.at(-1)?.design?.variants?.[0].cells.some(Boolean));
-    expect(msgs.at(-1).design.variants[0].cells.filter(Boolean)).toEqual(['A1']);
+    await until(() => msgs.at(-1)?.design?.cells?.some(Boolean));
+    expect(msgs.at(-1).design.cells.filter(Boolean)).toEqual(['A1']);
     ws.close();
   });
 });

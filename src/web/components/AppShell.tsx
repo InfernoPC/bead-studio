@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState, type Dispatch } from 'react'
 import type { StateSnapshot } from '../lib/api';
 import type { EditorAction, EditorState, Tool } from '../lib/editorState';
 import type { ConnState } from '../lib/serverState';
-import { getVariant } from '../../core/model';
 import { displayDesign, makeCtx } from '../lib/clientCore';
 import { ChecksPanel, useIssues } from './ChecksPanel';
 import { BeadTray } from './BeadTray';
@@ -37,13 +36,11 @@ export function AppShell({ conn, snapshot, editor, dispatch, notice: importNotic
   const [notice, setNotice] = useState<string | null>(null);
   const designId = design?.id;
   useEffect(() => setNotice(null), [designId]);
-  // 換作品或換配色版本時，畫布上的檢查器標示就不再對得上，清掉
-  const variantId = design?.activeVariant;
-  useEffect(() => dispatch({ type: 'highlightCells', cells: null }), [designId, variantId, dispatch]);
+  // 換作品時，畫布上的檢查器標示就不再對得上，清掉
+  useEffect(() => dispatch({ type: 'highlightCells', cells: null }), [designId, dispatch]);
   // 用量跟著畫面走：筆畫送出、伺服器還沒回應前也算進去
   const opCtx = useMemo(() => (snapshot ? makeCtx(snapshot) : undefined), [snapshot?.palette, snapshot?.inventory]);
   const shown = useMemo(() => displayDesign(design, editor.pending, opCtx), [design, editor.pending, opCtx]);
-  const variant = shown ? getVariant(shown) : null;
   const issues = useIssues(shown, snapshot?.palette, snapshot?.inventory, snapshot?.checks);
   // 建立新作品（作品選單、空狀態）與面板設定（狀態列的尺寸）對話框
   // 導入圖片的結果，顯示在工具列下方的提示條
@@ -86,17 +83,16 @@ export function AppShell({ conn, snapshot, editor, dispatch, notice: importNotic
           />
         </div>
         <SidePanel
-          titles={variant ? { usage: `用量（${variant.name}）` } : undefined}
           liveMeta={{ checks: true }}
-          meta={variant ? {
-            usage: <span className="num">共 {usageTotal(variant.cells)} 顆</span>,
+          meta={shown ? {
+            usage: <span className="num">共 {usageTotal(shown.cells)} 顆</span>,
             checks: <span className={`num${issues.length ? ' is-short' : ''}`}>{issues.length ? `${issues.length} 個問題` : '沒有問題'}</span>,
           } : undefined}
           palette={snapshot
             ? <BeadTray palette={snapshot.palette} inventory={snapshot.inventory} color={editor.color} recent={editor.recent} dispatch={dispatch} />
             : note('正在載入色票…')}
-          usage={variant && snapshot
-            ? <UsagePanel cells={variant.cells} palette={snapshot.palette} inventory={snapshot.inventory}
+          usage={shown && snapshot
+            ? <UsagePanel cells={shown.cells} palette={snapshot.palette} inventory={snapshot.inventory}
                 color={editor.color} highlightCode={editor.highlightCode} dispatch={dispatch} footer={deductButton} />
             : note('開啟作品後顯示用量。')}
           checks={design && snapshot

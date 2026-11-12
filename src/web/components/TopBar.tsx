@@ -9,7 +9,6 @@ import { DesignMenu } from './DesignMenu';
 import { ExportMenu } from './ExportMenu';
 import type { Notice } from './ImportOverlay';
 import { SnapshotMenu } from './SnapshotMenu';
-import { VariantTabs } from './VariantTabs';
 
 /** 外觀按鈕的圖示：跟隨系統＝半邊亮半邊暗、亮＝太陽、暗＝月亮 */
 const THEME_ICON: Record<ThemePref, ReactNode> = {
@@ -59,22 +58,6 @@ export function TopBar({ design, designs, history, editable, conn, mcpUrl, notic
       {design && (
         <>
           <span className="topbar-spacer" />
-          <VariantTabs design={design} disabled={off} act={act} />
-          <span className="topbar-spacer" />
-          <div className="seg seg-2 shape-lock" role="group" aria-label="形狀" title="鎖定後只能換顏色，不會增減豆子">
-            {([false, true] as const).map((locked) => (
-              <button
-                key={String(locked)} type="button" className="seg-btn" aria-pressed={design.shapeLocked === locked} disabled={off}
-                onClick={() => { if (design.shapeLocked !== locked) void act('set_shape_lock', { designId: design.id, locked }); }}
-              >
-                <svg viewBox="0 0 16 16" aria-hidden="true">
-                  <rect x="3.5" y="7.5" width="9" height="6" rx="1.5" />
-                  <path d={locked ? 'M5.5 7.5V5.5a2.5 2.5 0 0 1 5 0v2' : 'M5.5 7.5V5.5a2.5 2.5 0 0 1 4.8-1'} />
-                </svg>
-                {locked ? '只換色' : '可增減'}
-              </button>
-            ))}
-          </div>
           <div className="topbar-group">
             <button
               type="button" className="icon-btn" aria-label="復原" title={`復原（${MOD}Z）`} disabled={off} aria-disabled={noUndo || undefined}
