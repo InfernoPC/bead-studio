@@ -57,19 +57,11 @@ test('the selection survives a changing count, and only the issue count is a liv
   await expect(page.locator('.panel-meta[aria-live="polite"]')).toContainText('個問題');
 });
 
-test('switching design or variant clears the highlight', async ({ page }) => {
+test('switching design clears the highlight', async ({ page }) => {
   await openMarginDesign(page, '清除標示測試');
   const panel = panelOf(page);
   const margin = panel.getByRole('button', { name: /超出留邊/ });
   const lit = await pixel(page, 5, 5);
-
-  await margin.click();
-  await expect.poll(() => pixel(page, 5, 5)).not.toEqual(lit);
-  const made = await tool(page, 'create_variant', { name: '另一版', paletteMode: 'all' });
-  const vid = /版本 (\S+)「/.exec(made.text)![1];
-  await tool(page, 'select_variant', { variant: vid });
-  await expect(margin).toHaveAttribute('aria-pressed', 'false');
-  await expect.poll(() => pixel(page, 5, 5)).toEqual(lit);
 
   await margin.click();
   await expect.poll(() => pixel(page, 5, 5)).not.toEqual(lit);

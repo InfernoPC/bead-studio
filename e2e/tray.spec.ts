@@ -81,7 +81,7 @@ test('the usage panel counts beads, flags shortages, and toggles a single-color 
   await tool(page, 'apply_ops', { ops: [{ op: 'paste', x: 0, y: 0, rows: ['aab', 'a..'], legend: { a: 'F2', b: 'A1' } }] });
   await expect.poll(async () => (await current(page)).total).toBe(4);
 
-  await expect(page.locator('#panel-usage')).toHaveText('用量（理想版）');
+  await expect(page.locator('#panel-usage')).toHaveText('用量');
   await expect(page.locator('.panel-meta').filter({ hasText: /顆/ })).toHaveText('共 4 顆');
   const rows = page.locator('.usage-row');
   await expect(rows).toHaveCount(2);

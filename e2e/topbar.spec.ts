@@ -86,71 +86,37 @@ test('shrinking the board asks to confirm the crop; cancel keeps it, confirm app
   expect((await current(page)).total).toBe(0);
 });
 
-test('a shape-locked board change shows the reason and 解鎖形狀', async ({ page }) => {
-  await openDesign(page, '鎖定測試');
+test('a board change that would crop asks first; there are no variant tabs or shape lock', async ({ page }) => {
+  await openDesign(page, '裁切測試');
+  await expect(page.getByRole('tablist')).toHaveCount(0);
+  await expect(page.getByRole('group', { name: '形狀' })).toHaveCount(0);
   await tool(page, 'apply_ops', { ops: [{ op: 'paste', x: 26, y: 14, rows: ['aa'], legend: { a: 'A1' } }] });
-  const lock = page.getByRole('group', { name: '形狀' });
-  await lock.getByRole('button', { name: '只換色' }).click();
-  await expect(lock.getByRole('button', { name: '只換色' })).toHaveAttribute('aria-pressed', 'true');
-  await expect.poll(async () => (await state(page)).shapeLocked).toBe(true);
-
   await page.getByRole('button', { name: /30 × 30 格/ }).click();
   const dlg = page.getByRole('dialog', { name: '面板設定' });
   await dlg.getByLabel('寬（mm）').fill('40');
   await dlg.getByRole('button', { name: '套用設定' }).click();
-  await expect(dlg.getByText(/形狀已鎖定/)).toBeVisible();
-  await dlg.getByRole('button', { name: '解鎖形狀' }).click();
-  await expect(lock.getByRole('button', { name: '可增減' })).toHaveAttribute('aria-pressed', 'true');
-  await dlg.getByRole('button', { name: '套用設定' }).click();
   await expect(dlg.getByText('新尺寸會裁掉 2 顆豆子，仍要套用嗎？')).toBeVisible();
 });
 
-test('adding an 有的色 variant shows a second tab; tabs switch and change color range', async ({ page }) => {
-  await openDesign(page, '版本測試');
-  const tabs = page.getByRole('tablist', { name: '配色版本' });
-  await expect(tabs.getByRole('tab')).toHaveCount(1);
-  // 名稱已經說了範圍就不重複小字
-  await expect(tabs.getByRole('tab')).toHaveText('理想版');
-  await page.getByRole('button', { name: '新增配色版本' }).click();
-  const form = page.getByRole('dialog', { name: '新增配色版本' });
-  await form.getByRole('button', { name: '有的色' }).click();
-  await form.getByLabel('名稱').fill('我有的');
-  await form.getByRole('button', { name: '建立版本' }).click();
-  await expect(tabs.getByRole('tab')).toHaveCount(2);
-  await expect(tabs.getByRole('tab', { name: /我有的/ })).toHaveAttribute('aria-selected', 'true');
-  await expect(tabs.getByRole('tab', { name: /我有的/ })).toContainText('有的色');
-
-  await tabs.getByRole('tab', { name: /理想版/ }).click();
-  await expect(tabs.getByRole('tab', { name: /理想版/ })).toHaveAttribute('aria-selected', 'true');
-  await expect.poll(async () => (await state(page)).activeVariant).toBe('v1');
-
-  // 右鍵改色彩範圍
-  await tabs.getByRole('tab', { name: /我有的/ }).click({ button: 'right' });
-  await page.getByRole('menuitemradio', { name: '庫存' }).click();
-  await expect(tabs.getByRole('tab', { name: /我有的/ })).toContainText('庫存');
-  const v2 = (await state(page)).variants.find((v: { id: string }) => v.id === 'v2');
-  expect(v2.paletteMode).toBe('stock');
-});
-
-test('export links point at the server PNG with the chosen view and variant', async ({ page }) => {
+test('export links point at the server PNG with the chosen view', async ({ page }) => {
   await openDesign(page, '匯出測試');
   await page.getByRole('button', { name: '匯出', exact: true }).click();
   const menu = page.getByRole('dialog', { name: '匯出圖片' });
-  await menu.getByRole('button', { name: '全部版本' }).click();
+  await expect(menu.getByRole('group', { name: '版本' })).toHaveCount(0);
   await menu.getByRole('button', { name: '施工圖' }).click();
   const link = menu.getByRole('link', { name: '下載圖片' });
   const href = (await link.getAttribute('href'))!;
-  expect(href).toContain('view=pattern&variant=all');
+  expect(href).toContain('view=pattern');
+  expect(href).not.toContain('variant');
   expect(href).toContain('scale=2');
-  await expect(link).toHaveAttribute('download', '匯出測試-全部版本-施工圖.png');
+  await expect(link).toHaveAttribute('download', '匯出測試-施工圖.png');
   const res = await page.request.get(href);
   expect(res.ok()).toBeTruthy();
   expect(res.headers()['content-type']).toContain('image/png');
 
-  await menu.getByRole('button', { name: '目前版本' }).click();
   await menu.getByRole('button', { name: '3D 預覽' }).click();
-  await expect(link).toHaveAttribute('download', '匯出測試-理想版-3D預覽.png');
-  expect(await link.getAttribute('href')).toContain('view=3d&variant=v1');
+  await expect(link).toHaveAttribute('download', '匯出測試-3D預覽.png');
+  expect(await link.getAttribute('href')).toContain('view=3d');
 });
 
 test('snapshots save and restore; undo / redo buttons follow the server history', async ({ page }) => {
@@ -208,8 +174,11 @@ test('undo / redo are disabled on a fresh design; ⌘Z there is a silent no-op',
 
 test('a rejected top bar action shows the server text in a closable alert', async ({ page }) => {
   await openDesign(page, '提示測試');
-  await page.route('**/api/tools/set_shape_lock', (route) => route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"boom"}' }));
-  await page.getByRole('group', { name: '形狀' }).getByRole('button', { name: '只換色' }).click();
+  await tool(page, 'apply_ops', { ops: [{ op: 'paste', x: 4, y: 4, rows: ['a'], legend: { a: 'A1' } }] });
+  const undo = page.getByRole('button', { name: '復原' });
+  await expect(undo).not.toHaveAttribute('aria-disabled', 'true');
+  await page.route('**/api/tools/undo', (route) => route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"boom"}' }));
+  await undo.click();
   const alert = page.getByRole('alert');
   await expect(alert).toContainText('伺服器回應錯誤（500）：boom');
   await alert.getByRole('button', { name: '關閉提示' }).click();

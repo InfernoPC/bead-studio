@@ -373,25 +373,8 @@ button:disabled, button[aria-disabled="true"] { cursor: not-allowed; opacity: .4
 .topbar-btn:disabled, .seg-btn:disabled { cursor: not-allowed; opacity: .45; }
 .btn-quiet:hover:disabled { background: transparent; }
 
-/* 分段控制的兩段／三段版本；形狀鎖定 */
+/* 分段控制的兩段版本 */
 .seg.seg-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.shape-lock { flex: none; }
-.shape-lock .seg-btn { display: inline-flex; align-items: center; gap: 4px; padding: 4px 11px; font-size: var(--fs-sm); }
-
-/* 配色版本分頁：名稱＋色彩範圍小字 */
-.variants { display: flex; align-items: center; gap: 2px; min-width: 0; }
-.variant-tabs {
-  display: flex; gap: 4px; min-width: 0; overflow-x: auto; padding: 2px; scrollbar-width: none;
-}
-.variant-tab {
-  flex: none; display: inline-flex; align-items: baseline; gap: 6px; padding: 5px 12px;
-  border: 0; border-radius: 999px; cursor: pointer; white-space: nowrap;
-  background: color-mix(in srgb, var(--board) 70%, var(--card)); color: var(--ink); font: inherit; font-size: var(--fs-sm);
-}
-.variant-tab:hover:not(:disabled) { background: var(--board); }
-.variant-tab[aria-selected="true"], .variant-tab[aria-selected="true"]:hover:not(:disabled) { background: var(--peach); color: var(--on-peach); }
-.variant-mode { font-size: var(--fs-xs); color: var(--ink-soft); }
-.variant-tab[aria-selected="true"] .variant-mode { color: color-mix(in srgb, var(--on-peach) 78%, transparent); }
 
 /* 狀態列的尺寸文字＝開啟面板設定的按鈕 */
 .status-size {
