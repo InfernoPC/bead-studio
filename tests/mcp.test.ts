@@ -226,6 +226,24 @@ describe('MCP tools', () => {
   });
 
 
+  it('import_image passes background colors and sampling options through', async () => {
+    const { text } = await connect();
+    await text('new_design', NEW);
+    const c = createCanvas(8, 8);
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, 8, 8);
+    ctx.fillStyle = '#C7E8FA'; ctx.fillRect(1, 1, 6, 6);
+    const p = join(dir, 'sky.png');
+    writeFileSync(p, await c.encode('png'));
+    await text('import_image', { path: p, removeBg: true, sampling: 'dominant' });
+    expect(store.get().cells.some(Boolean)).toBe(true); // 只去掉白底，天空還在
+    const r = await text('import_image', { path: p, removeBg: true, bgColors: ['#C7E8FA'], sampling: 'dominant', lineBoost: 0.2, cleanup: 3 });
+    expect(r.ok).toBe(true);
+    expect(store.get().cells.some(Boolean)).toBe(false);
+    const bad = await text('import_image', { path: p, bgColors: ['sky'] });
+    expect(bad.ok).toBe(false);
+  });
+
   it('import_image falls back to image conversion for a plain PNG', async () => {
     const { text } = await connect();
     await text('new_design', NEW);
