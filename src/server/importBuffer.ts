@@ -1,7 +1,8 @@
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { formatIssues, runChecks } from '../core/checks';
 import { OpError } from '../core/errors';
-import { imageToCells, type PixelRect } from '../core/importImage';
+import { imageToCells, type ImportOpts, type PixelRect } from '../core/importImage';
+import { hexToRgb } from '../core/color';
 import { readImageSize } from './imageSize';
 import { extractDesign, hasDesignMeta } from './pngmeta';
 import type { DesignStore } from './store';
@@ -12,11 +13,13 @@ export const MAX_IMAGE_PIXELS = 50_000_000;
 export async function importImageBuffer(
   store: DesignStore,
   buf: Buffer,
-  { designId: id, removeBg = false, dither = false, colors, crop, exclude }: {
+  { designId: id, removeBg = false, dither = false, colors, crop, exclude, bgColors, bgTolerance, sampling, lineBoost, cleanup }: {
     designId?: string; removeBg?: boolean; dither?: boolean;
     /** 只用這些色號轉換（例如黑白線稿只給黑、白） */
     colors?: string[]; crop?: PixelRect; exclude?: PixelRect[];
-  },
+    /** #RRGGBB */
+    bgColors?: string[];
+  } & Pick<ImportOpts, 'bgTolerance' | 'sampling' | 'lineBoost' | 'cleanup'>,
 ): Promise<string> {
   const known = (cells: (string | null)[]) => cells.every((c) => c === null || store.palette.has(c));
   const meta = extractDesign(buf);
@@ -48,6 +51,7 @@ export async function importImageBuffer(
     }
     const cells = imageToCells(rgba, img.width, img.height, {
       cols: cur.cols, rows: cur.rows, margin: cur.board.margin, allowed, removeBg, dither, crop, exclude,
+      bgColors: bgColors?.map(hexToRgb), bgTolerance, sampling, lineBoost, cleanup,
     });
     return { ...structuredClone(cur), cells };
   });

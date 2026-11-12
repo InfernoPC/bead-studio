@@ -50,4 +50,59 @@ describe('imageToCells', () => {
     const cells = imageToCells(rgba, 4, 2, { cols: 4, rows: 4, margin: 0, allowed });
     expect(cells.filter(Boolean)).toHaveLength(8);
   });
+  it('removeBg also removes extra background colors reachable from the border', () => {
+    // 7×7：白底外圈、淡藍天空、黑框圍住的白色身體
+    const rgba = img(7, 7, (x, y) => {
+      const d = Math.max(Math.abs(x - 3), Math.abs(y - 3));
+      if (d === 3) return [255, 255, 255, 255];
+      if (d === 2) return [199, 232, 250, 255];
+      if (d === 1) return [17, 17, 17, 255];
+      return [255, 255, 255, 255];
+    });
+    const base = { cols: 7, rows: 7, margin: 0, allowed, removeBg: true };
+    expect(imageToCells(rgba, 7, 7, base).filter(Boolean).length).toBeGreaterThan(9); // 天空沒去掉
+    const cells = imageToCells(rgba, 7, 7, { ...base, bgColors: [[199, 232, 250]] });
+    expect(cells.filter(Boolean)).toHaveLength(9);
+    expect(cells[3 * 7 + 3]).toBe('H1'); // 被框住的白色身體保留
+  });
+  it('bgTolerance widens what counts as background', () => {
+    const rgba = img(3, 1, (x) => (x === 1 ? [17, 17, 17, 255] : x === 0 ? [255, 255, 255, 255] : [235, 235, 228, 255]));
+    const tight = imageToCells(rgba, 3, 1, { cols: 3, rows: 1, margin: 0, allowed, removeBg: true, bgTolerance: 2 });
+    expect(tight[2]).toBe('H1');
+    const loose = imageToCells(rgba, 3, 1, { cols: 3, rows: 1, margin: 0, allowed, removeBg: true, bgTolerance: 15 });
+    expect(loose[2]).toBeNull();
+  });
+  it('dominant sampling takes the most common color instead of averaging', () => {
+    // 一格 3×3：5 白 4 紅，平均是粉紅
+    const rgba = img(3, 3, (x, y) => (y * 3 + x < 4 ? [232, 67, 79, 255] : [255, 255, 255, 255]));
+    const opts = { cols: 1, rows: 1, margin: 0, allowed: palette.entries(['A1', 'A3', 'H1']) };
+    expect(imageToCells(rgba, 3, 3, opts)[0]).toBe('A3');
+    expect(imageToCells(rgba, 3, 3, { ...opts, sampling: 'dominant' })[0]).toBe('H1');
+  });
+  it('lineBoost keeps thin dark lines that cover only part of a cell', () => {
+    // 一格 5×5，只有一條 1px 黑線（20%）
+    const rgba = img(5, 5, (x) => (x === 2 ? [17, 17, 17, 255] : [255, 255, 255, 255]));
+    const opts = { cols: 1, rows: 1, margin: 0, allowed };
+    expect(imageToCells(rgba, 5, 5, { ...opts, sampling: 'dominant' })[0]).toBe('H1');
+    expect(imageToCells(rgba, 5, 5, { ...opts, sampling: 'dominant', lineBoost: 0.2 })[0]).toBe('H2');
+    expect(imageToCells(rgba, 5, 5, { ...opts, lineBoost: 0.2 })[0]).toBe('H2'); // average 模式也適用
+  });
+  it('cleanup merges tiny specks of a similar color but keeps distinct details', () => {
+    // 藍底上：一顆深紅（跟紅色底相近→會被併）放在紅底區、一顆黃（跟藍差很多→保留）、一顆黑（深色→保留）
+    const rgba = img(6, 5, (x, y) => {
+      if (x === 1 && y === 1) return [201, 48, 44, 255]; // A2 深紅
+      if (x < 3) return [232, 67, 79, 255]; // A1 紅底
+      if (x === 4 && y === 1) return [255, 224, 102, 255]; // B1 黃
+      if (x === 4 && y === 3) return [17, 17, 17, 255]; // H2 黑
+      return [46, 126, 196, 255]; // C1 藍底
+    });
+    const cells = imageToCells(rgba, 6, 5, { cols: 6, rows: 5, margin: 0, allowed: palette.entries(['A1', 'A2', 'B1', 'C1', 'H2']), cleanup: 2 });
+    expect(cells[1 * 6 + 1]).toBe('A1');
+    expect(cells[1 * 6 + 4]).toBe('B1');
+    expect(cells[3 * 6 + 4]).toBe('H2');
+  });
+  it('rejects dither with dominant sampling', () => {
+    const rgba = img(1, 1, () => [255, 255, 255, 255]);
+    expect(() => imageToCells(rgba, 1, 1, { cols: 1, rows: 1, margin: 0, allowed, sampling: 'dominant', dither: true })).toThrow(/dither/);
+  });
 });

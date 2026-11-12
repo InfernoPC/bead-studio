@@ -166,14 +166,19 @@ export function buildMcpServer(store: DesignStore, opts: { vision?: Vision } & P
 
   server.registerTool('import_image', {
     description: (opts.filesDir ? `只能使用 ${opts.filesDir} 裡的檔案。` : '') + '導入圖片。含 bead-studio metadata 的 PNG 會還原成新作品；其他圖片會轉換到目前作品的指定版本（覆蓋原內容）。'
-      + 'removeBg 只去掉從圖片外圍連進來的背景色（被外框圍住的同色區塊會保留）；colors 限定只用哪些色號；crop 只取原圖某一塊；exclude 把原圖上的區塊（例如文字）當背景略過。crop／exclude 的座標是原圖像素',
+      + 'removeBg 只去掉從圖片外圍連進來的背景色（被外框圍住的同色區塊會保留）；colors 限定只用哪些色號；crop 只取原圖某一塊；exclude 把原圖上的區塊（例如文字）當背景略過。crop／exclude 的座標是原圖像素。'
+      + 'bgColors 另外指定背景色（#RRGGBB，例如白底外的淡藍天空），bgTolerance 是去背色差（預設 10）；'
+      + 'sampling: dominant 每格取最多的顏色（不會平均出灰邊）；lineBoost 例如 0.2：一格深色佔 20% 以上就整格用深色，線稿的細線不會斷；cleanup 例如 3：小於 3 顆的同色雜點併進周圍（深色小點保留）',
     inputSchema: {
       path: z.string(), designId, removeBg: z.boolean().default(false), dither: z.boolean().default(false),
       colors: z.array(z.string().min(1)).min(1).max(64).optional(),
       crop: PixelRect.optional(), exclude: z.array(PixelRect).max(32).optional(),
+      bgColors: z.array(z.string().regex(/^#[0-9A-Fa-f]{6}$/)).max(8).optional(), bgTolerance: z.number().min(1).max(50).optional(),
+      sampling: z.enum(['average', 'dominant']).optional(), lineBoost: z.number().min(0.05).max(0.9).optional(),
+      cleanup: z.number().int().min(0).max(50).optional(),
     },
-  }, wrap(async ({ path, designId: id, removeBg, dither, colors, crop, exclude }) =>
-    ok(await importImageBuffer(store, readFileSync(resolveUserPath(path, opts)), { designId: id, removeBg, dither, colors, crop, exclude }))));
+  }, wrap(async ({ path, designId: id, ...rest }) =>
+    ok(await importImageBuffer(store, readFileSync(resolveUserPath(path, opts)), { designId: id, ...rest }))));
 
   server.registerTool('export_png', {
     description: (opts.filesDir ? `只能寫到 ${opts.filesDir} 裡。` : '') + '匯出 PNG（含可還原的 metadata）',
