@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type PointerEvent as ReactPointerEvent } from 'react';
 import type { ClientDesign as Design } from '../../core/model';
 import type { Op } from '../../core/opSchema';
-import { drawBeadFlat, flatLayout } from '../../core/render/draw';
+import { drawBeadFlat, drawBeadTile, flatLayout } from '../../core/render/draw';
+import type { BoardLook } from '../lib/boardLook';
 import { drawBoard, readTokens } from '../lib/boardRender';
 import { useTheme } from '../lib/theme';
 import { callTool, toolError, type StateSnapshot } from '../lib/api';
@@ -15,6 +16,8 @@ import { cellAt, zoomAround, type View } from '../lib/viewport';
 type Props = {
   snapshot: StateSnapshot; design: Design; editor: EditorState;
   dispatch: Dispatch<EditorAction>; editable: boolean; onNotice(text: string | null): void;
+  /** 燙前／燙後、有／無釘板（和實體預覽共用） */
+  look: BoardLook;
 };
 
 const MAX_CELL = 36;
@@ -33,7 +36,7 @@ type Gesture =
   | { kind: 'line'; shape: 'line' | 'ellipse'; base: Design; color: string; from: Cell; to: Cell; circle: boolean; filled: boolean };
 
 /** 平面編輯區：繪製、縮放平移、繪圖工具。所有修改都透過 callTool 送到伺服器。 */
-export function Editor({ snapshot, design, editor, dispatch, editable, onNotice }: Props) {
+export function Editor({ snapshot, design, editor, dispatch, editable, onNotice, look }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const boardRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
@@ -140,12 +143,12 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
     const k = sz.dpr * vw.zoom;
     ctx.setTransform(k, 0, 0, k, sz.dpr * vw.offsetX, sz.dpr * vw.offsetY);
     drawBoard(ctx, d, {
-      palette: opCtx.palette, cell: vw.cell, mirror: ed.mirror, tokens,
+      palette: opCtx.palette, cell: vw.cell, mirror: ed.mirror, tokens, look,
       highlightCode: ed.highlightCode, highlightCells: ed.highlightCells, cellAnim,
     });
     // 還有格子在跳：下一個影格繼續畫，全部結束就停
     if (bounce.active) frame.current = requestAnimationFrame(drawNow);
-  }, [opCtx, tokens, bounce]);
+  }, [opCtx, tokens, bounce, look]);
   /** 下一個動畫影格重畫（同一影格內多次呼叫只畫一次） */
   const requestDraw = useCallback(() => {
     if (!frame.current) frame.current = requestAnimationFrame(drawNow);
@@ -168,15 +171,19 @@ export function Editor({ snapshot, design, editor, dispatch, editable, onNotice 
     const ghost = ed.tool === 'pen' && ed.color ? opCtx.palette.get(ed.color)?.displayHex : undefined;
     if (ghost) {
       ctx.globalAlpha = 0.6;
-      drawBeadFlat(ctx, cx, cy, cs * 0.47, ghost, tokens.ui.rim);
+      if (look.ironed) drawBeadTile(ctx, cx, cy, cs / 2, ghost, tokens.ui.rim);
+      else drawBeadFlat(ctx, cx, cy, cs * 0.47, ghost, tokens.ui.rim);
       ctx.globalAlpha = 1;
     }
     ctx.lineWidth = Math.max(1, cs * 0.08);
     ctx.strokeStyle = tokens.inkSoft;
     if (ed.tool === 'eraser' || ed.tool === 'hole') ctx.setLineDash([cs * 0.16, cs * 0.12]);
-    ctx.beginPath(); ctx.arc(cx, cy, cs * 0.5, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath();
+    if (look.ironed) ctx.roundRect(cx - cs / 2, cy - cs / 2, cs, cs, cs * 0.22);
+    else ctx.arc(cx, cy, cs * 0.5, 0, Math.PI * 2);
+    ctx.stroke();
     ctx.setLineDash([]);
-  }, [opCtx, tokens]);
+  }, [opCtx, tokens, look]);
 
   useEffect(() => {
     for (const c of [boardRef.current, overlayRef.current]) {

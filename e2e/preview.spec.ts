@@ -13,7 +13,7 @@ async function openDesign(page: Page, name: string) {
   await expect(page.getByTestId('design-name')).toHaveText(name);
 }
 
-test('shows the physical size, and toggling 燙後 / 釘板 / tilt redraws the canvas', async ({ page }) => {
+test('shows the physical size, and toggling 燙後 / 釘板 (above the stage) / tilt redraws the canvas', async ({ page }) => {
   await openDesign(page, '預覽測試');
   const panel = previewOf(page);
   await expect(panel.getByText('面板實際大小約 5.2 × 5.2 cm')).toBeVisible();
@@ -25,15 +25,16 @@ test('shows the physical size, and toggling 燙後 / 釘板 / tilt redraws the c
   await expect.poll(() => canvasData(page)).not.toEqual(empty); // 已畫出新放的豆子
   const plain = await canvasData(page);
 
-  await panel.getByLabel('燙後').check();
+  // 燙後／釘板的開關在編輯區上方，預覽跟著切
+  const bar = page.getByRole('toolbar', { name: '顯示方式' });
+  await bar.getByRole('button', { name: '燙後' }).click();
   await expect.poll(() => canvasData(page)).not.toEqual(plain);
-  await panel.getByLabel('燙後').uncheck();
+  await bar.getByRole('button', { name: '燙前' }).click();
   await expect.poll(() => canvasData(page)).toEqual(plain);
 
-  await expect(panel.getByLabel('釘板')).toBeChecked();
-  await panel.getByLabel('釘板').uncheck();
+  await bar.getByRole('button', { name: '無釘板' }).click();
   await expect.poll(() => canvasData(page)).not.toEqual(plain);
-  await panel.getByLabel('釘板').check();
+  await bar.getByRole('button', { name: '有釘板' }).click();
   await expect.poll(() => canvasData(page)).toEqual(plain);
 
   const tilt = panel.getByRole('slider', { name: '傾斜' });

@@ -2,6 +2,7 @@
 import type { ClientDesign as Design } from '../../core/model';
 import type { Palette } from '../../core/palette';
 import { drawFlat, flatLayout } from '../../core/render/draw';
+import type { BoardLook } from './boardLook';
 import type { CellFrame } from './bounce';
 
 const FLAT = { pegs: true, rulers: true, guides: true, margin: true, markers: true } as const;
@@ -41,6 +42,8 @@ export function mirrored(d: Design): Design {
 
 export type BoardOpts = {
   palette: Palette; cell: number; mirror: boolean; tokens: Tokens;
+  /** 燙前／燙後、有／無釘板；未傳時是燙前、有釘板 */
+  look?: BoardLook;
   highlightCode: string | null; highlightCells: [number, number][] | null;
   /** 跳動中的格子（索引為資料座標）：暫時顯示的色號與縮放；見 lib/bounce */
   cellAnim?: Map<number, CellFrame>;
@@ -54,6 +57,7 @@ export function drawBoard(ctx: CanvasRenderingContext2D, design: Design, o: Boar
   const dx = (i: number) => (o.mirror ? d.cols - 1 - i : i);
   // 跳動中的格子整張一起重畫（不單獨補畫一格），參考線、留邊與打洞記號才不會被蓋掉
   const anim = o.cellAnim?.size ? o.cellAnim : null;
+  const flat = { cell: cs, ...FLAT, ui: o.tokens.ui, ironed: o.look?.ironed, board: o.look?.board };
   if (anim) {
     const cells = d.cells.slice();
     const scale = new Map<number, number>();
@@ -61,9 +65,9 @@ export function drawBoard(ctx: CanvasRenderingContext2D, design: Design, o: Boar
       const shownK = Math.floor(k / d.cols) * d.cols + dx(k % d.cols);
       cells[shownK] = f.code; scale.set(shownK, f.scale);
     }
-    drawFlat(ctx, { ...d, cells }, o.palette, { cell: cs, ...FLAT, ui: o.tokens.ui, beadScale: (k) => scale.get(k) ?? 1 });
+    drawFlat(ctx, { ...d, cells }, o.palette, { ...flat, beadScale: (k) => scale.get(k) ?? 1 });
   } else {
-    drawFlat(ctx, d, o.palette, { cell: cs, ...FLAT, ui: o.tokens.ui });
+    drawFlat(ctx, d, o.palette, flat);
   }
 
   if (o.mirror) {

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type Dispatch } from 'react'
 import type { StateSnapshot } from '../lib/api';
 import type { EditorAction, EditorState, Tool } from '../lib/editorState';
 import type { ConnState } from '../lib/serverState';
+import { useBoardLook } from '../lib/boardLook';
 import { displayDesign, makeCtx } from '../lib/clientCore';
 import { ChecksPanel, useIssues } from './ChecksPanel';
 import { BeadTray } from './BeadTray';
@@ -9,6 +10,7 @@ import { BoardDialog } from './BoardDialog';
 import { DeductDialog } from './DeductDialog';
 import { Editor } from './Editor';
 import { ImportOverlay, type Notice } from './ImportOverlay';
+import { LookToggle } from './LookToggle';
 import { NewDesignDialog } from './NewDesignDialog';
 import { OfflineBanner } from './OfflineBanner';
 import { Preview3D } from './Preview3D';
@@ -32,6 +34,8 @@ export function AppShell({ conn, snapshot, editor, dispatch, notice: importNotic
   const setTool = useCallback((tool: Tool) => dispatch({ type: 'setTool', tool }), [dispatch]);
   const toggleMirror = useCallback(() => dispatch({ type: 'toggleMirror' }), [dispatch]);
   const note = (text: string) => <p className="panel-note">{text}</p>;
+  // 燙前／燙後、有／無釘板：編輯區與實體預覽一起切換
+  const [look, setLook] = useBoardLook();
   // 狀態列的提示（例如伺服器拒絕修改的原因）；換作品時清掉
   const [notice, setNotice] = useState<string | null>(null);
   const designId = design?.id;
@@ -66,9 +70,10 @@ export function AppShell({ conn, snapshot, editor, dispatch, notice: importNotic
       <div className="workspace">
         <ToolRail tool={editor.tool} mirror={editor.mirror} disabled={!editable} onTool={setTool} onToggleMirror={toggleMirror} />
         <div className="stage-column">
-          <main className="stage" aria-label="編輯區">
+          <LookToggle look={look} onLook={setLook} />
+          <main className={`stage${look.board ? '' : ' no-board'}`} aria-label="編輯區">
             {design && snapshot && (
-              <Editor snapshot={snapshot} design={design} editor={editor} dispatch={dispatch} editable={editable} onNotice={setNotice} />
+              <Editor snapshot={snapshot} design={design} editor={editor} dispatch={dispatch} editable={editable} onNotice={setNotice} look={look} />
             )}
             {!design && snapshot && (
               <div className="empty-state">
@@ -100,7 +105,7 @@ export function AppShell({ conn, snapshot, editor, dispatch, notice: importNotic
             : note('開啟作品後自動檢查。')}
           // 預覽跟著伺服器上的作品走，不跟每一格筆畫預覽重畫，畫筆才保持順暢
           preview={design && snapshot
-            ? <Preview3D design={design} palette={snapshot.palette} />
+            ? <Preview3D design={design} palette={snapshot.palette} look={look} onLook={setLook} />
             : note('開啟作品後顯示 3D 預覽。')}
         />
       </div>

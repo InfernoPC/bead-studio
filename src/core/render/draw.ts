@@ -38,8 +38,32 @@ export function drawBeadFlat(ctx: C2D, cx: number, cy: number, R: number, hex: s
   }
 }
 
+/**
+ * 燙後的豆子：填滿格子的方塊，相鄰豆子連成一片、不畫中孔（編輯區給看到整片圓孔會不舒服的人用）。
+ * round：四個角（左上、右上、右下、左下）是否畫圓；只有外角畫圓，四顆交會處才不會露出底色的小點
+ */
+export function drawBeadTile(ctx: C2D, cx: number, cy: number, half: number, hex: string, rim?: string,
+  round: readonly boolean[] = [true, true, true, true]): void {
+  const r = half * 0.44, x = cx - half, y = cy - half, w = half * 2;
+  const radii = round.map((k) => (k ? r : 0));
+  const g = ctx.createLinearGradient(x, y, x + w, y + w);
+  g.addColorStop(0, shadeHex(hex, 0.08));
+  g.addColorStop(1, shadeHex(hex, -0.1));
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.roundRect(x, y, w, w, radii); ctx.fill();
+  if (rim) {
+    const lw = half * 0.1;
+    ctx.strokeStyle = rim; ctx.lineWidth = lw;
+    ctx.beginPath(); ctx.roundRect(x + lw / 2, y + lw / 2, w - lw, w - lw, radii.map((k) => Math.max(0, k - lw / 2))); ctx.stroke();
+  }
+}
+
 export type FlatOpts = {
-  cell: number; pegs?: boolean; codes?: boolean; rulers?: boolean; guides?: boolean; margin?: boolean; markers?: boolean;
+  cell: number; pegs?: boolean;
+  /** 燙後：豆子畫成連成一片的圓角方塊（drawBeadTile） */
+  ironed?: boolean;
+  /** false：不畫釘板（板面與釘子），空格露出底色 */
+  board?: boolean; codes?: boolean; rulers?: boolean; guides?: boolean; margin?: boolean; markers?: boolean;
   /** 個別豆子的縮放（以格子中心；k = j * cols + i）；編輯區的跳動動畫用，≤0 時畫成空格 */
   beadScale?: (k: number) => number;
   /** 覆寫板面配色（編輯區依亮暗主題傳入）；豆子顏色不受影響。未傳時用 UI（伺服器匯出固定亮色） */
@@ -62,17 +86,28 @@ export function drawFlat(ctx: C2D, d: DesignCore, p: Palette, o: FlatOpts): void
     for (let i = 0; i < d.cols; i += 5) ctx.fillText(String(i + 1), pad + i * cs + cs / 2, pad / 2);
     for (let j = 0; j < d.rows; j += 5) ctx.fillText(String(j + 1), pad / 2, pad + j * cs + cs / 2);
   }
-  ctx.fillStyle = ui.board; ctx.fillRect(pad, pad, d.cols * cs, d.rows * cs);
+  const showBoard = o.board !== false;
+  if (showBoard) { ctx.fillStyle = ui.board; ctx.fillRect(pad, pad, d.cols * cs, d.rows * cs); }
   for (let j = 0; j < d.rows; j++) for (let i = 0; i < d.cols; i++) {
     const cx = pad + i * cs + cs / 2, cy = pad + j * cs + cs / 2;
     const code = d.cells[j * d.cols + i];
     const scale = code && o.beadScale ? o.beadScale(j * d.cols + i) : 1;
     if (!code || scale <= 0) {
-      if (o.pegs !== false) { ctx.fillStyle = ui.peg; ctx.beginPath(); ctx.arc(cx, cy, Math.max(1, cs * 0.1), 0, Math.PI * 2); ctx.fill(); }
+      if (showBoard && o.pegs !== false) { ctx.fillStyle = ui.peg; ctx.beginPath(); ctx.arc(cx, cy, Math.max(1, cs * 0.1), 0, Math.PI * 2); ctx.fill(); }
       continue;
     }
     const hex = p.get(code)?.displayHex ?? '#FF00FF';
-    drawBeadFlat(ctx, cx, cy, cs * 0.47 * scale, hex, o.ui?.rim);
+    if (o.ironed) {
+      // 跳動中（縮放不是 1）的豆子四角都圓；平常只有上下、左右都沒有豆子的外角才圓
+      const has = (di: number, dj: number) => {
+        const a = i + di, b = j + dj;
+        return a >= 0 && b >= 0 && a < d.cols && b < d.rows && !!d.cells[b * d.cols + a];
+      };
+      const round = scale !== 1 ? undefined
+        : [!has(0, -1) && !has(-1, 0), !has(0, -1) && !has(1, 0), !has(0, 1) && !has(1, 0), !has(0, 1) && !has(-1, 0)];
+      drawBeadTile(ctx, cx, cy, (cs / 2) * scale, hex, o.ui?.rim, round);
+    }
+    else drawBeadFlat(ctx, cx, cy, cs * 0.47 * scale, hex, o.ui?.rim);
     if (o.codes) {
       ctx.fillStyle = luminance(hex) > 0.55 ? '#3A2E25' : '#FFFFFF';
       ctx.font = `bold ${Math.round(cs * 0.34)}px sans-serif`;
