@@ -239,7 +239,7 @@ Run: `pnpm vitest run tests/web` — Expected: FAIL（`exportFileName` 簽名）
 - `Editor.tsx`：刪除 `isForbidden` 與 `blocked` 相關繪製（游標框固定用 `tokens.inkSoft`）。
 - 刪除 `VariantTabs.tsx` 與 `app.css` 中只給它和鎖定 seg 用的樣式（用 grep 確認沒有其他使用者）。
 
-Run: `pnpm typecheck && pnpm vitest run && pnpm build:web && pnpm test:e2e` — Expected: 全部 PASS。
+Run: `pnpm typecheck && pnpm vitest run && pnpm build:web && pnpm e2e` — Expected: 全部 PASS。
 
 - [ ] **Step 3: Commit**
 
