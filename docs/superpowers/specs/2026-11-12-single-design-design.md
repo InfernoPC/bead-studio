@@ -43,6 +43,15 @@ type Design = DesignCore & { snapshots: Snapshot[] };
 - 數量：看 `apply_ops` 回傳的檢查結果（缺料提醒），超量就用 `replace_color` 等 op 換掉。
 - 使用者改主意：AI 用一般的 op（`replace_color` 等）改色，跟其他修改一樣可復原。
 
+AI 的設計迴圈（寫進 skill）：
+
+1. 抓有的顏色（`get_palette`，挑有庫存的；使用者不限顏色時可跳過）。
+2. 抓庫存數量（同一份清單的「庫存N」）。
+3. 開始畫（`apply_ops`／`import_image colors`）。
+4. 抓檢查器結果（`apply_ops` 回傳或 `run_checks`）。
+5. 有用錯色（使用者要求只用有的顏色時出現「沒有庫存」）或超過數量（「庫存不足」）→ 修改（`replace_color` 等）。
+6. 回到 4，直到檢查器沒有這類問題（使用者沒限制的面向不算錯誤）。
+
 工具不再依「色彩範圍」擋顏色：任何色表上的顏色都能用，缺料由檢查器提醒。
 
 ## 移除的工具與參數
