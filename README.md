@@ -115,3 +115,7 @@ pnpm typecheck
 - 庫存：`data/inventory.json`
 
 只有色表 `data/palette.json` 納入版本控制，色號來源見 `data/PALETTE_SOURCES.md`。
+
+## 授權
+
+[MIT](LICENSE)
